@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+csv
+web/node_modules
+web/dist
+ignore/
