@@ -5,3 +5,5 @@ csv
 web/node_modules
 web/dist
 ignore/
+config/targetChannels.local.json
+config/inactiveCategories.local.json

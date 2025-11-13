@@ -49,6 +49,10 @@ export type DefaultChannelsResponse = {
   channels: string[];
 };
 
+export type DefaultInactiveCategoriesResponse = {
+  categories: string[];
+};
+
 export type CsvFileMetadata = {
   filename: string;
   size: number;
@@ -103,4 +107,46 @@ export type InactiveScanStatus = {
   finishedAt: string | null;
   lastMessage: string | null;
   errorMessage: string | null;
+};
+
+export type CleanupRolesRequest = {
+  dryRun?: boolean;
+};
+
+export type CleanupRolesResponse = {
+  message: string;
+  data: {
+    guildName: string;
+    totalRoles: number;
+    deletableRoleCount: number;
+    deletedRoleCount: number;
+    previewNames: string[];
+    moreCount: number;
+    failures: string[];
+  };
+};
+
+export type ArchivedChannelSummary = {
+  id: string;
+  name: string;
+  lastMessageAt: string | null;
+};
+
+export type ArchiveChannelsRequest = {
+  days: number;
+  channelIds?: string[];
+  dryRun?: boolean;
+  action?: "archive" | "delete";
+};
+
+export type ArchiveChannelsResponse = {
+  message: string;
+  data: {
+    days: number;
+    inactiveChannels: ArchivedChannelSummary[];
+    processedCount: number;
+    archiveCategoryId: string | null;
+    action: "archive" | "delete";
+    failures: string[];
+  };
 };

@@ -8,6 +8,8 @@ import { ScanCancelledError } from "./services/errors";
 import { listCsvFiles } from "./services/csvManager";
 import { kickMembersFromCsv } from "./services/kickFromCsv";
 import { mapInactiveResultToResponse, scanInactiveMembers } from "./services/inactiveScanner";
+import { cleanupEmptyRoles } from "./services/roleCleanup";
+import { archiveInactiveChannels } from "./services/archiveChannels";
 import { DEFAULT_INACTIVE_CATEGORIES } from "./shared/constants";
 import type {
   CsvFileListResponse,
@@ -70,6 +72,8 @@ export function startHttpServer(client: Client, options: StartServerOptions) {
   let isProcessing = false;
   let isKickProcessing = false;
   let isInactiveProcessing = false;
+  let isRoleCleanupProcessing = false;
+  let isChannelArchiveProcessing = false;
   let activeCancellation: ScanCancellationController | null = null;
   let inactiveCancellation: ScanCancellationController | null = null;
   let kickCancellation: ScanCancellationController | null = null;
@@ -92,6 +96,10 @@ export function startHttpServer(client: Client, options: StartServerOptions) {
   app.get("/api/default-channels", async (_req, res) => {
     const channels = await readConfiguredChannelNames();
     res.json({ channels });
+  });
+
+  app.get("/api/inactive-defaults", (_req, res) => {
+    res.json({ categories: [...DEFAULT_INACTIVE_CATEGORIES] });
   });
 
   app.get("/api/scan-status", (_req, res) => {
@@ -148,6 +156,102 @@ export function startHttpServer(client: Client, options: StartServerOptions) {
 
     kickCancellation.cancel();
     res.json({ message: "Cancellation requested." });
+  });
+
+  app.post("/api/cleanup-roles", async (req, res) => {
+    if (!client.isReady()) {
+      res.status(503).json({ message: "Discord client is not ready yet. Try again shortly." });
+      return;
+    }
+
+    if (isRoleCleanupProcessing) {
+      res.status(409).json({ message: "A role cleanup is already running." });
+      return;
+    }
+
+    const dryRun = req.body?.dryRun === false ? false : true;
+    isRoleCleanupProcessing = true;
+
+    try {
+      const result = await cleanupEmptyRoles(client, { guildId, dryRun });
+      let message = "No empty roles found.";
+      if (result.deletableRoleCount > 0) {
+        message = dryRun
+          ? `Found ${result.deletableRoleCount} empty role(s) ready for deletion.`
+          : `Deleted ${result.deletedRoleCount} empty role(s).`;
+      }
+
+      res.json({
+        message,
+        data: result,
+      });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    } finally {
+      isRoleCleanupProcessing = false;
+    }
+  });
+
+  app.post("/api/inactive-channels", async (req, res) => {
+    if (!client.isReady()) {
+      res.status(503).json({ message: "Discord client is not ready yet. Try again shortly." });
+      return;
+    }
+
+    if (isChannelArchiveProcessing) {
+      res.status(409).json({ message: "An archive job is already running." });
+      return;
+    }
+
+    const days = Number(req.body?.days ?? 90);
+    if (!Number.isFinite(days) || days <= 0) {
+      res.status(400).json({ message: "Provide a positive number of days." });
+      return;
+    }
+
+    const dryRun = req.body?.dryRun === false ? false : true;
+    const channelIds = Array.isArray(req.body?.channelIds)
+      ? req.body.channelIds.filter((value: unknown) => typeof value === "string" && value.trim().length > 0)
+      : [];
+    const action = req.body?.action === "delete" ? "delete" : "archive";
+
+    if (!dryRun && channelIds.length === 0) {
+      res.status(400).json({ message: "Select at least one channel to archive." });
+      return;
+    }
+
+    isChannelArchiveProcessing = true;
+    try {
+      const result = await archiveInactiveChannels(client, {
+        guildId,
+        days,
+        channelIds: dryRun ? undefined : channelIds,
+        dryRun,
+        action,
+        excludedCategories: collectInactiveExcludedCategories(),
+      });
+
+      const message = dryRun
+        ? result.inactiveChannels.length > 0
+          ? `Found ${result.inactiveChannels.length} inactive channel(s).`
+          : "No inactive channels found."
+        : action === "archive"
+          ? `Archived ${result.processedCount} channel(s).`
+          : `Deleted ${result.processedCount} channel(s).`;
+
+      res.json({
+        message,
+        data: {
+          ...result,
+          days,
+          action,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    } finally {
+      isChannelArchiveProcessing = false;
+    }
   });
 
   app.post("/api/zero-messages", async (req, res) => {

@@ -16,10 +16,12 @@ import type {
 } from "../models/types";
 import { formatDiscordName } from "./zeroMessageScanner";
 import { ScanCancelledError } from "./errors";
-import { DEFAULT_INACTIVE_CATEGORIES } from "../shared/constants";
 
+// Cap how many inactive member names we preview in the API response to keep payloads small.
 const SUMMARY_PREVIEW_LIMIT = 20;
+// Limit how many skipped-channel reasons we show up front before summarizing the rest.
 const SKIPPED_PREVIEW_LIMIT = 5;
+// Discord refuses uploads larger than ~8 MB, so keep CSV attachments under this threshold.
 const DISCORD_FILE_LIMIT = 8 * 1024 * 1024;
 const CSV_DIRECTORY = path.resolve(process.cwd(), "csv");
 
@@ -173,9 +175,8 @@ export async function scanInactiveMembers(
 }
 
 function buildExcludedCategorySet(categories: string[]): Set<string> {
-  const combined = [...DEFAULT_INACTIVE_CATEGORIES, ...categories];
   return new Set(
-    combined
+    categories
       .map((value) => value.trim().toLowerCase())
       .filter((value) => value.length > 0)
   );
