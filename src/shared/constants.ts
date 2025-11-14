@@ -1,5 +1,3 @@
-export const DEFAULT_INACTIVE_CATEGORIES = [
-  "interests",
-  "fun shit",
-  "PRIVATE",
-] as const;
+import { getInactiveCategoryDefaultsSync } from "../config/inactiveCategories";
+
+export const DEFAULT_INACTIVE_CATEGORIES: readonly string[] = getInactiveCategoryDefaultsSync();

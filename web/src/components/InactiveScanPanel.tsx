@@ -4,9 +4,9 @@ import type { InactiveScanResponse, InactiveScanStatus } from "../models/types";
 import { requestInactiveScan } from "../services/inactiveScan";
 import { cancelInactiveScan } from "../services/cancelInactiveScan";
 import { fetchInactiveStatus } from "../services/inactiveStatus";
+import { fetchDefaultInactiveCategories } from "../services/inactiveDefaults";
 import { ResultTile } from "./ResultTile";
 import { InactiveProgressIndicator } from "./InactiveProgressIndicator";
-import { DEFAULT_INACTIVE_CATEGORIES } from "../../../src/shared/constants";
 
 export const InactiveScanPanel = () => {
   const [days, setDays] = useState(180);
@@ -17,6 +17,26 @@ export const InactiveScanPanel = () => {
   const [result, setResult] = useState<InactiveScanResponse | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [scanStatus, setScanStatus] = useState<InactiveScanStatus | null>(null);
+  const [defaultCategories, setDefaultCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadDefaults = async () => {
+      try {
+        const categories = await fetchDefaultInactiveCategories();
+        if (!cancelled) {
+          setDefaultCategories(categories);
+        }
+      } catch {
+        // Silently ignore errors; UI can fall back to "no categories".
+      }
+    };
+
+    void loadDefaults();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,8 +149,9 @@ export const InactiveScanPanel = () => {
             disabled={loading}
           />
           <small>
-            Defaults always exclude{" "}
-            {DEFAULT_INACTIVE_CATEGORIES.map((category) => `“${category}”`).join(", ")}.
+            Defaults always exclude {defaultCategories.length > 0
+              ? defaultCategories.map((category) => `“${category}”`).join(", ")
+              : "no categories"}
           </small>
         </label>
         <div className="inactive-panel__actions">

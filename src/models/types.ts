@@ -95,6 +95,44 @@ export type KickFromCsvResponse = {
   results: KickFromCsvFileResult[];
 };
 
+export type CleanupRolesOptions = {
+  guildId: string;
+  dryRun?: boolean;
+};
+
+export type CleanupRolesResult = {
+  guildName: string;
+  totalRoles: number;
+  deletableRoleCount: number;
+  deletedRoleCount: number;
+  previewNames: string[];
+  moreCount: number;
+  failures: string[];
+};
+
+export type ArchiveChannelsOptions = {
+  guildId: string;
+  days: number;
+  channelIds?: string[];
+  dryRun?: boolean;
+  action?: "archive" | "delete";
+  excludedCategories?: string[];
+};
+
+export type ArchivedChannelSummary = {
+  id: string;
+  name: string;
+  lastMessageAt: string | null;
+};
+
+export type ArchiveChannelsResult = {
+  inactiveChannels: ArchivedChannelSummary[];
+  processedCount: number;
+  archiveCategoryId: string | null;
+  action: "archive" | "delete";
+  failures: string[];
+};
+
 export type InactiveScanStatus = {
   inProgress: boolean;
   currentChannel: string | null;
