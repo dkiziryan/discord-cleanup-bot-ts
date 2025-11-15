@@ -1,7 +1,9 @@
 import { promises as fs, readFileSync } from "fs";
 import path from "path";
 
-const BUILTIN_INACTIVE_CATEGORIES = ["interests", "fun shit", "PRIVATE"];
+type CategoryList = string[];
+
+const BUILTIN_INACTIVE_CATEGORIES: CategoryList = [];
 
 const INACTIVE_FILE_PATH = path.resolve(process.cwd(), "config", "inactiveCategories.json");
 const INACTIVE_LOCAL_FILE_PATH = path.resolve(
@@ -9,8 +11,6 @@ const INACTIVE_LOCAL_FILE_PATH = path.resolve(
   "config",
   "inactiveCategories.local.json",
 );
-
-type CategoryList = string[];
 
 async function loadCategoryFile(filePath: string): Promise<CategoryList | null> {
   try {
