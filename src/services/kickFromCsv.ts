@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
-import type { Client, GuildMember } from "discord.js";
+import type { Client, Guild, GuildMember } from "discord.js";
+import { PermissionFlagsBits } from "discord.js";
 
 import { formatDiscordName } from "./zeroMessageScanner";
 import { ScanCancelledError } from "./errors";
@@ -31,8 +32,11 @@ export async function kickMembersFromCsv(
     throw new Error(`Guild ${guildId} not found.`);
   }
 
-  await guild.members.fetch();
-  throwIfCancelled();
+  const me = guild.members.me ?? (client.user ? await guild.members.fetch(client.user.id) : null);
+  if (!me || !me.permissions.has(PermissionFlagsBits.KickMembers)) {
+    throw new Error("Bot is missing the Kick Members permission in this guild.");
+  }
+
   const ignoredUserIds = await loadIgnoredUserIds();
 
   const uniqFilenames = Array.from(new Set(filenames));
@@ -69,17 +73,15 @@ export async function kickMembersFromCsv(
       }
 
       const normalizedExpected = normalizeUsername(username);
-      let member: GuildMember | null = null;
-      try {
-        member = await guild.members.fetch(userId);
-      } catch {
-        member = guild.members.cache.get(userId) ?? null;
+      const memberResult = await fetchGuildMember(guild, userId);
+      if (memberResult.error) {
+        summary.failures.push(`Row ${rowIndex + 2}: ${memberResult.error}`);
+        continue;
       }
 
+      const member = memberResult.member;
       if (!member) {
-        summary.failures.push(
-          `Row ${rowIndex + 2}: User ID ${userId} not found in this guild.`,
-        );
+        summary.failures.push(`Row ${rowIndex + 2}: User ID ${userId} not found in this guild.`);
         continue;
       }
 
@@ -87,6 +89,13 @@ export async function kickMembersFromCsv(
       if (actualUsername !== normalizedExpected) {
         summary.failures.push(
           `Row ${rowIndex + 2}: Username mismatch (expected ${normalizedExpected}, got ${actualUsername}).`,
+        );
+        continue;
+      }
+
+      if (!member.kickable) {
+        summary.failures.push(
+          `Row ${rowIndex + 2}: Cannot kick ${actualUsername} due to role hierarchy or missing permission.`,
         );
         continue;
       }
@@ -106,7 +115,25 @@ export async function kickMembersFromCsv(
       throwIfCancelled();
       try {
         await entry.member.kick("Kicked due to inactivity");
-        summary.successfulKicks += 1;
+        const stillInGuild = await guild.members
+          .fetch(entry.userId)
+          .then(() => true)
+          .catch((error: unknown) => {
+            if ((error as { code?: number }).code === 10007) {
+              // Unknown Member -> successfully kicked
+              return false;
+            }
+            // If Discord returned something else, rethrow so we record it.
+            throw error;
+          });
+
+        if (stillInGuild) {
+          summary.failures.push(
+            `Kick ${index + 1}/${matchedMembers.length} for ${entry.username} (${entry.userId}) reported success but user is still in the guild.`,
+          );
+        } else {
+          summary.successfulKicks += 1;
+        }
       } catch (error) {
         summary.failures.push(
           `Kick ${index + 1}/${matchedMembers.length} failed for ${entry.username} (${entry.userId}): ${(error as Error).message}`,
@@ -127,12 +154,30 @@ export async function kickMembersFromCsv(
 async function resolveCsvPath(filename: string): Promise<string> {
   await fs.mkdir(CSV_DIRECTORY, { recursive: true });
 
-  const resolved = path.resolve(CSV_DIRECTORY, filename);
-  if (!resolved.startsWith(CSV_DIRECTORY)) {
+  const normalizedInput = path.normalize(filename.trim());
+  const withoutLeadingSlashes = normalizedInput.replace(/^[/\\]+/, "");
+  const withoutCsvPrefix = withoutLeadingSlashes.startsWith(`csv${path.sep}`)
+    ? withoutLeadingSlashes.slice(`csv${path.sep}`.length)
+    : withoutLeadingSlashes;
+
+  const candidate = path.isAbsolute(normalizedInput)
+    ? normalizedInput
+    : path.join(CSV_DIRECTORY, withoutCsvPrefix);
+  const resolved = path.resolve(candidate);
+
+  const relative = path.relative(CSV_DIRECTORY, resolved);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
     throw new Error("Invalid CSV filename.");
   }
 
-  await fs.access(resolved);
+  try {
+    await fs.access(resolved);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`CSV file not found: ${filename}`);
+    }
+    throw error;
+  }
   return resolved;
 }
 
@@ -234,4 +279,36 @@ function delay(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);
   });
+}
+
+type FetchMemberResult =
+  | { member: GuildMember; error: null }
+  | { member: null; error: string };
+
+async function fetchGuildMember(guild: Guild, userId: string): Promise<FetchMemberResult> {
+  const cached = guild.members.cache.get(userId);
+  if (cached) {
+    return { member: cached, error: null };
+  }
+
+  try {
+    const fetched = await guild.members.fetch(userId);
+    return { member: fetched, error: null };
+  } catch (error) {
+    const message = (error as Error).message ?? "Unknown error";
+    if (message.includes("Members didn't arrive in time")) {
+      return {
+        member: null,
+        error: `Failed to fetch user ${userId}: Members didn't arrive in time (Discord chunk timeout).`,
+      };
+    }
+
+    const errorCode = (error as { code?: number }).code;
+    if (errorCode === 10007) {
+      // Unknown Member
+      return { member: null, error: `User ID ${userId} not found in this guild.` };
+    }
+
+    return { member: null, error: `Failed to fetch user ${userId}: ${message}` };
+  }
 }
