@@ -1,11 +1,12 @@
 import {
+  AnyThreadChannel,
   ChannelType,
   Client,
+  Collection,
   DiscordAPIError,
   Guild,
   GuildMember,
   GuildTextBasedChannel,
-  TextChannel,
 } from "discord.js";
 import { promises as fs } from "fs";
 import path from "path";
@@ -16,11 +17,12 @@ import type {
 } from "../models/types";
 import { formatDiscordName } from "./zeroMessageScanner";
 import { ScanCancelledError } from "./errors";
+import { loadIgnoredUserIds } from "./kickFromCsv";
 
 // Cap how many inactive member names we preview in the API response to keep payloads small.
-const SUMMARY_PREVIEW_LIMIT = 20;
+const SUMMARY_PREVIEW_LIMIT = 50;
 // Limit how many skipped-channel reasons we show up front before summarizing the rest.
-const SKIPPED_PREVIEW_LIMIT = 5;
+const SKIPPED_PREVIEW_LIMIT = 10;
 // Discord refuses uploads larger than ~8 MB, so keep CSV attachments under this threshold.
 const DISCORD_FILE_LIMIT = 8 * 1024 * 1024;
 const CSV_DIRECTORY = path.resolve(process.cwd(), "csv");
@@ -52,15 +54,23 @@ export async function scanInactiveMembers(
   await guild.channels.fetch();
   throwIfCancelled();
 
-  const members = guild.members.cache.filter((member) => !member.user.bot);
+  const ignoredUserIds = await loadIgnoredUserIds();
+  const members = guild.members.cache.filter((member) => !member.user.bot && !ignoredUserIds.has(member.id));
   const remainingIds = new Set(members.keys());
 
-  if (members.size === 0) {
+  // Exclude members who joined after the cutoff; they haven't had enough time to be considered inactive.
+  for (const member of members.values()) {
+    if (member.joinedTimestamp && member.joinedTimestamp > cutoff.getTime()) {
+      remainingIds.delete(member.id);
+    }
+  }
+
+  if (members.size === 0 || remainingIds.size === 0) {
     const csvPath = await writeCsvFile(`inactive_${days}d`, []);
     return {
       guildName: guild.name,
       cutoffIso: cutoff.toISOString(),
-      totalMembersChecked: 0,
+      totalMembersChecked: remainingIds.size,
       totalMessagesScanned: 0,
       inactiveMembers: [],
       skippedChannels: [],
@@ -73,7 +83,14 @@ export async function scanInactiveMembers(
   }
 
   const normalizedExcluded = buildExcludedCategorySet(excludedCategories);
-  const targetChannels = resolveTargetChannels(guild, normalizedExcluded);
+  const activeThreads = await guild.channels.fetchActiveThreads().catch(() => null);
+  throwIfCancelled();
+  const threadCollection = activeThreads ? new Collection(activeThreads.threads) : null;
+  const targetChannels = await resolveTargetChannels(
+    guild,
+    normalizedExcluded,
+    threadCollection
+  );
 
   if (targetChannels.length === 0) {
     throw new Error("No eligible channels were found for inactivity scan.");
@@ -162,7 +179,7 @@ export async function scanInactiveMembers(
   return {
     guildName: guild.name,
     cutoffIso: cutoff.toISOString(),
-    totalMembersChecked: members.size,
+    totalMembersChecked: remainingIds.size,
     totalMessagesScanned,
     inactiveMembers,
     skippedChannels,
@@ -190,23 +207,107 @@ async function fetchGuild(client: Client, guildId: string): Promise<Guild> {
   return guild;
 }
 
-function resolveTargetChannels(
+async function resolveTargetChannels(
   guild: Guild,
-  excludedCategories: Set<string>
-): TextChannel[] {
-  const targets: TextChannel[] = [];
+  excludedCategories: Set<string>,
+  activeThreads: Collection<string, AnyThreadChannel> | null
+): Promise<GuildTextBasedChannel[]> {
+  const targets: GuildTextBasedChannel[] = [];
+  const seen = new Set<string>();
+
+  const considerChannel = (channel: unknown) => {
+    const kind = (channel as { type?: ChannelType }).type;
+    if (kind === ChannelType.GuildForum) {
+      return;
+    }
+
+    if (!channel || typeof (channel as GuildTextBasedChannel).isTextBased !== "function") {
+      return;
+    }
+
+    const textChannel = channel as GuildTextBasedChannel;
+    if (!textChannel.isTextBased()) {
+      return;
+    }
+
+    const categoryName = resolveCategoryName(textChannel);
+    if (categoryName && excludedCategories.has(categoryName)) {
+      return;
+    }
+
+    if (seen.has(textChannel.id)) {
+      return;
+    }
+
+    seen.add(textChannel.id);
+    targets.push(textChannel);
+  };
+
+  const addChildThreads = async (channel: unknown) => {
+    const kind = (channel as { type?: ChannelType }).type;
+    const threadManager = (channel as { threads?: unknown }).threads as {
+      fetchActive?: () => Promise<{ threads: Collection<string, AnyThreadChannel> }>;
+      fetchArchived?: (options?: Record<string, unknown>) => Promise<{ threads: Collection<string, AnyThreadChannel> }>;
+    } | null;
+
+    // Only text/announcement/forum parents can own threads.
+    if (
+      !threadManager ||
+      (kind !== ChannelType.GuildText &&
+        kind !== ChannelType.GuildAnnouncement &&
+        kind !== ChannelType.GuildForum)
+    ) {
+      return;
+    }
+
+    try {
+      const active = await threadManager.fetchActive?.();
+      active?.threads?.forEach((thread) => considerChannel(thread));
+    } catch {
+      // ignore
+    }
+
+    try {
+      const publicArchived = await threadManager.fetchArchived?.({ type: "public", limit: 100 });
+      publicArchived?.threads?.forEach((thread) => considerChannel(thread));
+    } catch {
+      // ignore
+    }
+
+    try {
+      const privateArchived = await threadManager.fetchArchived?.({ type: "private", limit: 100 });
+      privateArchived?.threads?.forEach((thread) => considerChannel(thread));
+    } catch {
+      // ignore
+    }
+  };
 
   for (const channel of guild.channels.cache.values()) {
-    if (channel?.type === ChannelType.GuildText) {
-      const parentName = channel.parent?.name?.toLowerCase();
-      if (parentName && excludedCategories.has(parentName)) {
-        continue;
-      }
-      targets.push(channel);
-    }
+    considerChannel(channel);
+    await addChildThreads(channel);
   }
 
+  activeThreads?.forEach((thread) => considerChannel(thread));
+
   return targets;
+}
+
+function resolveCategoryName(channel: GuildTextBasedChannel | AnyThreadChannel): string | null {
+  const parent = channel.parent;
+  if (!parent) {
+    return null;
+  }
+
+  if (parent.type === ChannelType.GuildCategory) {
+    return parent.name.toLowerCase();
+  }
+
+  const grandparent = parent.parent;
+  if (grandparent?.type === ChannelType.GuildCategory) {
+    return grandparent.name.toLowerCase();
+  }
+
+  return null;
 }
 
 async function resolveGuildMe(guild: Guild): Promise<GuildMember | null> {

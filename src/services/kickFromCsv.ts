@@ -205,7 +205,7 @@ async function readCsvRows(filepath: string): Promise<CsvRow[]> {
   return rows;
 }
 
-async function loadIgnoredUserIds(): Promise<Set<string>> {
+export async function loadIgnoredUserIds(): Promise<Set<string>> {
   const ignored = new Set<string>();
   try {
     await fs.access(IGNORE_DIRECTORY);
