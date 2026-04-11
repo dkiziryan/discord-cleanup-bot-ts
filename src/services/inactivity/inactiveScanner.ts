@@ -14,6 +14,7 @@ import {
   ScanInactiveMembersResult,
 } from "../../models/types";
 import { formatDiscordName } from "../../utils/discordMemberName";
+import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";
 import { loadIgnoredUserIds } from "../csv/kickFromCsv";
 import { writeUserCsv } from "../csv/userCsv";
 import { ScanCancelledError } from "../errors";
@@ -111,58 +112,81 @@ export const scanInactiveMembers = async (
 
   const me = await resolveGuildMe(guild);
 
-  for (let index = 0; index < targetChannels.length; index += 1) {
-    throwIfCancelled();
-    const channel = targetChannels[index];
-    const channelName = channel.name;
+  let nextChannelIndex = 0;
+  let completedChannels = 0;
 
-    const canReadHistory = me
-      ? channel.permissionsFor(me)?.has("ReadMessageHistory") &&
-        channel.permissionsFor(me)?.has("ViewChannel")
-      : true;
-
-    if (!canReadHistory) {
-      skippedChannels.push(`${channelName} (missing history permission)`);
-      continue;
-    }
-
-    processedChannels.push(channelName);
-    progressCallbacks?.onChannelStart?.(channelName, index + 1, totalChannels);
-
-    try {
-      const stats = await scanChannelHistorySince(
-        channel,
-        cutoff,
-        remainingIds,
-        {
-          onCheckCancelled: throwIfCancelled,
-        },
-      );
-      totalMessagesScanned += stats.totalMessages;
-    } catch (error) {
-      if (error instanceof DiscordAPIError) {
-        if (error.code === 50013) {
-          skippedChannels.push(`${channelName} (forbidden)`);
-        } else {
-          skippedChannels.push(`${channelName} (HTTP error: ${error.message})`);
-        }
-      } else {
-        skippedChannels.push(
-          `${channelName} (error: ${(error as Error).message})`,
-        );
+  const scanNextChannel = async () => {
+    while (remainingIds.size > 0) {
+      throwIfCancelled();
+      const index = nextChannelIndex;
+      nextChannelIndex += 1;
+      if (index >= targetChannels.length) {
+        return;
       }
-    } finally {
-      progressCallbacks?.onChannelComplete?.(
+
+      const channel = targetChannels[index];
+      const channelName = channel.name;
+
+      const canReadHistory = me
+        ? channel.permissionsFor(me)?.has("ReadMessageHistory") &&
+          channel.permissionsFor(me)?.has("ViewChannel")
+        : true;
+
+      if (!canReadHistory) {
+        skippedChannels.push(`${channelName} (missing history permission)`);
+        completedChannels += 1;
+        continue;
+      }
+
+      processedChannels.push(channelName);
+      progressCallbacks?.onChannelStart?.(
         channelName,
         index + 1,
         totalChannels,
       );
-    }
 
-    if (remainingIds.size === 0) {
-      break;
+      try {
+        const stats = await scanChannelHistorySince(
+          channel,
+          cutoff,
+          remainingIds,
+          {
+            onCheckCancelled: throwIfCancelled,
+          },
+        );
+        totalMessagesScanned += stats.totalMessages;
+      } catch (error) {
+        if (error instanceof DiscordAPIError) {
+          if (error.code === 50013) {
+            skippedChannels.push(`${channelName} (forbidden)`);
+          } else {
+            skippedChannels.push(
+              `${channelName} (HTTP error: ${error.message})`,
+            );
+          }
+        } else {
+          skippedChannels.push(
+            `${channelName} (error: ${(error as Error).message})`,
+          );
+        }
+      } finally {
+        completedChannels += 1;
+        progressCallbacks?.onChannelComplete?.(
+          channelName,
+          completedChannels,
+          totalChannels,
+        );
+      }
     }
-  }
+  };
+
+  const channelConcurrency = Math.min(
+    resolveScanChannelConcurrency(),
+    targetChannels.length,
+  );
+  await Promise.all(
+    Array.from({ length: channelConcurrency }, () => scanNextChannel()),
+  );
 
   throwIfCancelled();
   const inactiveMembers = extractMembers(members, remainingIds);

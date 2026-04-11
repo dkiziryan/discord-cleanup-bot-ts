@@ -4,6 +4,7 @@ import { ScanCancelledError } from "../errors";
 
 import { writeUserCsv } from "../csv/userCsv";
 import { formatDiscordName } from "../../utils/discordMemberName";
+import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";
 
 import type {
   ScanZeroMessagesOptions,
@@ -14,7 +15,6 @@ import {
   resolveTargetChannels,
   scanChannelHistory,
   buildSkippedPreview,
-  resolveScanChannelConcurrency,
 } from "./zeroMessageScannerHelpers";
 export type {
   ScanProgressCallbacks,

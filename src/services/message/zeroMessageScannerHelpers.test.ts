@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveScanChannelConcurrency } from "./zeroMessageScannerHelpers";
+import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";
 
 test("resolveScanChannelConcurrency defaults to three channels", () => {
   assert.equal(resolveScanChannelConcurrency(undefined), 3);
