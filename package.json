@@ -8,10 +8,18 @@
     "postinstall": "prisma generate",
     "test": "rm -rf dist-test && tsc -p tsconfig.test.json && find dist-test/src -name '*.test.js' -print | sort | xargs node --test && npm ci --prefix web && npm run --prefix web test",
     "start": "node dist/index.js",
+    "start:prod": "prisma migrate deploy && node dist/index.js",
     "dev": "tsx src/index.ts",
     "dev:web": "npm run --prefix web dev",
     "build:web": "npm ci --prefix web && npm run --prefix web build",
     "preview:web": "npm run --prefix web preview"
+  },
+  "engines": {
+    "node": ">=24 <26",
+    "npm": ">=11"
+  },
+  "overrides": {
+    "@hono/node-server": "^1.19.14"
   },
   "keywords": [],
   "author": "",
@@ -26,11 +34,12 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-session": "^1.19.0",
+    "helmet": "^8.1.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
     "@types/connect-pg-simple": "^7.0.3",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/express-session": "^1.18.2",
     "@types/node": "^24.12.2",

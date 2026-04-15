@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: discord_admin_console
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d discord_admin_console"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/discord_admin_console
+      DISCORD_TOKEN: ci-discord-token
+      DISCORD_GUILD_ID: "123456789012345678"
+      DISCORD_CLIENT_ID: "123456789012345678"
+      DISCORD_CLIENT_SECRET: ci-discord-client-secret
+      DISCORD_OAUTH_REDIRECT_URI: http://localhost:3001/auth/discord/callback
+      SESSION_SECRET: ci-session-secret-with-enough-length
+      HTTP_PORT: "3001"
+      WEB_APP_URL: http://localhost:5173
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install web dependencies
+        run: npm ci --prefix web
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Web lint
+        run: npm run --prefix web lint
+
+      - name: Audit production dependencies
+        run: |
+          npm audit --omit=dev
+          npm audit --omit=dev --prefix web

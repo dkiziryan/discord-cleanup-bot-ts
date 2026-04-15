@@ -127,6 +127,16 @@ http://localhost:5173
 
 The current production deployment runs on Railway.
 
+The production runtime is pinned to Node 24 via `.nvmrc`, `.node-version`, and `package.json` engines.
+
+Production start command:
+
+```bash
+npm run start:prod
+```
+
+This runs `prisma migrate deploy` before starting the compiled app.
+
 Required Railway service variables:
 
 - `DATABASE_URL`

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseChannelNames } from "../server";
+import { parseChannelNames } from "../services/channel/channelInput";
 import {
   getOriginFromUrl,
   isAllowedBrowserOrigin,

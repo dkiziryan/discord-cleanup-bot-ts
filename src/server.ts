@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import helmet from "helmet";
 import session from "express-session";
 import type { Client } from "discord.js";
 import connectPgSimple from "connect-pg-simple";
@@ -36,10 +37,13 @@ import {
   authenticateDiscordUser,
   buildDiscordLoginUrl,
 } from "./services/auth/discordOAuth";
+import { getPostLoginRedirectUrl } from "./services/auth/postLoginRedirect";
+import { renderUnauthorizedPage } from "./services/auth/unauthorizedPage";
 import {
   authorizeDiscordUser,
   listAuthorizedGuilds,
 } from "./services/auth/authorization";
+import { parseChannelNames } from "./services/channel/channelInput";
 import { cleanupEmptyRoles } from "./services/role/roleCleanup";
 import {
   getSelectedGuildId,
@@ -51,6 +55,10 @@ import {
   isAllowedBrowserOrigin,
   isDatabaseReady,
 } from "./utils/runtimeChecks";
+import {
+  createScanCancellationController,
+  type ScanCancellationController,
+} from "./utils/cancellationController";
 
 const initialScanStatus = (): ScanStatus => ({
   inProgress: false,
@@ -80,87 +88,12 @@ const initialInactiveStatus = (): InactiveScanStatus => ({
   errorMessage: null,
 });
 
-type ScanCancellationController = {
-  cancel: () => void;
-  isCancelled: () => boolean;
-};
-
-const createScanCancellationController = (): ScanCancellationController => {
-  let cancelled = false;
-  return {
-    cancel() {
-      cancelled = true;
-    },
-    isCancelled: () => cancelled,
-  };
-};
-
-const renderUnauthorizedPage = (reason: string): string => {
-  const detail =
-    reason === "not_in_guild"
-      ? "Your Discord account is not a member of the configured server."
-      : reason === "no_admin_guilds"
-        ? "Your Discord account does not have the required moderation permissions in any server where this bot is installed."
-        : "Your Discord account does not have the required moderation permissions in the configured server.";
-
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Unauthorized</title>
-    <style>
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f6f7fb;
-        color: #111827;
-      }
-      main {
-        max-width: 520px;
-        margin: 10vh auto;
-        padding: 32px;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
-      }
-      h1 {
-        margin: 0 0 12px;
-        font-size: 28px;
-      }
-      p {
-        margin: 0 0 12px;
-        line-height: 1.5;
-      }
-      a {
-        color: #2563eb;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Unauthorized</h1>
-      <p>Server management access is required to use this tool.</p>
-      <p>${detail}</p>
-      <p><a href="/auth/discord/login">Try a different Discord account</a></p>
-    </main>
-  </body>
-</html>`;
-};
-
 const LISTEN_HOSTS = {
   local: "127.0.0.1",
   production: "0.0.0.0",
 } as const;
 
-const getPostLoginRedirectUrl = (isProduction: boolean): string => {
-  if (isProduction) {
-    return "/";
-  }
-
-  return process.env.WEB_APP_URL ?? "/";
-};
+const JSON_BODY_LIMIT = "1mb";
 
 export const startHttpServer = (
   client: Client,
@@ -201,6 +134,24 @@ export const startHttpServer = (
   });
   const PgSessionStore = connectPgSimple(session);
 
+  app.disable("x-powered-by");
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          baseUri: ["'self'"],
+          connectSrc: ["'self'"],
+          frameAncestors: ["'none'"],
+          imgSrc: ["'self'", "data:", "https://cdn.discordapp.com"],
+          objectSrc: ["'none'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          upgradeInsecureRequests: isProduction ? [] : null,
+        },
+      },
+    }),
+  );
   app.use(
     cors({
       origin(origin, callback) {
@@ -216,7 +167,7 @@ export const startHttpServer = (
   if (isProduction) {
     app.set("trust proxy", 1);
   }
-  app.use(express.json());
+  app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(
     session({
       secret: sessionSecret ?? "local-dev-session-secret",
@@ -315,8 +266,9 @@ export const startHttpServer = (
     const dbReady = await isDatabaseReady();
     const discordReady = Boolean(client.isReady());
     const status = dbReady && discordReady ? "ok" : "degraded";
+    const httpStatus = status === "ok" ? 200 : 503;
 
-    res.json({
+    res.status(httpStatus).json({
       status,
       discordReady,
       dbReady,
@@ -1129,25 +1081,4 @@ export const startHttpServer = (
   });
 
   return app;
-};
-
-export const parseChannelNames = (raw: unknown): string[] => {
-  if (!raw) {
-    return [];
-  }
-
-  if (Array.isArray(raw)) {
-    return raw
-      .map((value) => (typeof value === "string" ? value.trim() : ""))
-      .filter((value) => value.length > 0);
-  }
-
-  if (typeof raw === "string") {
-    return raw
-      .split(/[,\r\n]+/)
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-  }
-
-  return [];
 };
