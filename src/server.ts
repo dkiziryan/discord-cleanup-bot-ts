@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import session from "express-session";
 import type { Client } from "discord.js";
 import connectPgSimple from "connect-pg-simple";
@@ -94,6 +95,16 @@ const LISTEN_HOSTS = {
 } as const;
 
 const JSON_BODY_LIMIT = "1mb";
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_RATE_LIMIT_MAX = 30;
+const WORKFLOW_RATE_LIMIT_MAX = 40;
+const RATE_LIMITED_API_WORKFLOW_PATHS = new Set([
+  "/cleanup-roles",
+  "/inactive-channels",
+  "/zero-messages",
+  "/inactive-scan",
+  "/kick-from-csv",
+]);
 
 export const startHttpServer = (
   client: Client,
@@ -135,6 +146,9 @@ export const startHttpServer = (
   const PgSessionStore = connectPgSimple(session);
 
   app.disable("x-powered-by");
+  if (isProduction) {
+    app.set("trust proxy", 1);
+  }
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -153,6 +167,16 @@ export const startHttpServer = (
     }),
   );
   app.use(
+    ["/auth/discord/login", "/auth/discord/callback"],
+    rateLimit({
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      limit: AUTH_RATE_LIMIT_MAX,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      message: { message: "Too many login attempts. Try again shortly." },
+    }),
+  );
+  app.use(
     cors({
       origin(origin, callback) {
         if (isAllowedBrowserOrigin(origin, allowedBrowserOrigins)) {
@@ -164,9 +188,6 @@ export const startHttpServer = (
       },
     }),
   );
-  if (isProduction) {
-    app.set("trust proxy", 1);
-  }
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(
     session({
@@ -182,6 +203,20 @@ export const startHttpServer = (
         httpOnly: true,
         sameSite: "lax",
         secure: isProduction,
+      },
+    }),
+  );
+  app.use(
+    "/api",
+    rateLimit({
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      limit: WORKFLOW_RATE_LIMIT_MAX,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      skip: (req) =>
+        req.method !== "POST" || !RATE_LIMITED_API_WORKFLOW_PATHS.has(req.path),
+      message: {
+        message: "Too many workflow requests. Try again shortly.",
       },
     }),
   );
