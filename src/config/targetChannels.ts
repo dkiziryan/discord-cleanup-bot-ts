@@ -12,6 +12,31 @@ const LOCAL_CHANNELS_FILE_PATH = path.resolve(
 
 export type TargetChannelNames = string[];
 
+export const getConfiguredTargetChannelsGuildId = (): string | null => {
+  const configuredGuildId =
+    process.env.TARGET_CHANNELS_GUILD_ID ?? process.env.DISCORD_GUILD_ID ?? "";
+  const trimmed = configuredGuildId.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+export const canUseConfiguredChannelNames = (guildId: string): boolean => {
+  const configuredGuildId = getConfiguredTargetChannelsGuildId();
+
+  return Boolean(configuredGuildId && guildId === configuredGuildId);
+};
+
+export const applyConfiguredChannelScope = (
+  guildId: string,
+  channels: TargetChannelNames,
+): TargetChannelNames => {
+  if (!canUseConfiguredChannelNames(guildId)) {
+    return [];
+  }
+
+  return [...channels];
+};
+
 const loadChannelNames = async (filePath: string): Promise<TargetChannelNames | null> => {
   try {
     const raw = await fs.readFile(filePath, "utf8");
@@ -26,7 +51,13 @@ const loadChannelNames = async (filePath: string): Promise<TargetChannelNames | 
   return null;
 };
 
-export const readConfiguredChannelNames = async (): Promise<TargetChannelNames> => {
+export const readConfiguredChannelNames = async (
+  guildId?: string,
+): Promise<TargetChannelNames> => {
+  if (guildId && !canUseConfiguredChannelNames(guildId)) {
+    return [];
+  }
+
   const localChannels = await loadChannelNames(LOCAL_CHANNELS_FILE_PATH);
   if (localChannels) {
     return localChannels;
