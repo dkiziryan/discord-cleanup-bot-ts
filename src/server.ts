@@ -62,7 +62,7 @@ import {
   listIgnoredUsers,
   mapIgnoredUserRecord,
   removeIgnoredUser,
-} from "./services/ignore/ignoredUsers";
+} from "./services/ignoredUsers/ignoredUsers";
 import {
   getSelectedGuildId,
   requireAuthenticatedSession,

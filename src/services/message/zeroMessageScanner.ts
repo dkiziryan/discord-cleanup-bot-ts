@@ -4,7 +4,7 @@ import { Client, DiscordAPIError, GuildMember } from "discord.js";
 
 import { ScanCancelledError } from "../errors";
 
-import { loadIgnoredUserIds } from "../ignore/ignoredUsers";
+import { loadIgnoredUserIds } from "../ignoredUsers/ignoredUsers";
 import { writeUserCsv } from "../csv/userCsv";
 import { formatDiscordName } from "../../utils/discordMemberName";
 import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";

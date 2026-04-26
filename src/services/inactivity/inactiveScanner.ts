@@ -18,7 +18,7 @@ import {
 } from "../../models/types";
 import { formatDiscordName } from "../../utils/discordMemberName";
 import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";
-import { loadIgnoredUserIds } from "../ignore/ignoredUsers";
+import { loadIgnoredUserIds } from "../ignoredUsers/ignoredUsers";
 import { writeUserCsv } from "../csv/userCsv";
 import { ScanCancelledError } from "../errors";
 

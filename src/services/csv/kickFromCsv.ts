@@ -3,7 +3,7 @@ import { PermissionFlagsBits } from "discord.js";
 import { KickFromCsvRequest, KickFromCsvFileResult } from "../../models/types";
 import { formatDiscordName } from "../../utils/discordMemberName";
 import { ScanCancelledError } from "../errors";
-import { loadIgnoredUserIds } from "../ignore/ignoredUsers";
+import { loadIgnoredUserIds } from "../ignoredUsers/ignoredUsers";
 import { readCsvRowsByFilename } from "./csvInput";
 import type { CsvOwnerScope } from "./csvStorage";
 
