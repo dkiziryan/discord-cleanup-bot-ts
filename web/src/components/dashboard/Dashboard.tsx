@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import styles from "./Dashboard.module.css";
 import { ArchiveChannelsPanel } from "../archive/ArchiveChannelsPanel";
@@ -6,9 +6,21 @@ import { InactiveScanPanel } from "../inactivity/InactiveScanPanel";
 import { KickFromCsvPanel } from "../kick/KickFromCsvPanel";
 import { CleanupRolesPanel } from "../roles/CleanupRolesPanel";
 import { ZeroMessageScanner } from "../zeroMessages/ZeroMessageScanner";
+import { ActivityHistoryPanel } from "../history/ActivityHistoryPanel";
 import type { AuthUser } from "../../services/auth/auth";
 
-type PanelKey = "zero" | "inactive" | "kick" | "roles" | "archive";
+export type PanelKey =
+  | "zero"
+  | "inactive"
+  | "kick"
+  | "roles"
+  | "archive"
+  | "activity";
+
+export type PanelRequest = {
+  key: number;
+  panel: PanelKey;
+};
 
 type DashboardPanel = {
   title: string;
@@ -17,9 +29,11 @@ type DashboardPanel = {
 };
 
 export const Dashboard = ({
+  activePanelRequest,
   user,
   onSelectGuild,
 }: {
+  activePanelRequest: PanelRequest | null;
   user: AuthUser;
   onSelectGuild: (guildId: string) => Promise<void>;
 }) => {
@@ -29,6 +43,12 @@ export const Dashboard = ({
   const activeGuild = guilds.find(
     (guild) => guild.id === user?.selectedGuildId,
   );
+
+  useEffect(() => {
+    if (activePanelRequest) {
+      setActivePanel(activePanelRequest.panel);
+    }
+  }, [activePanelRequest]);
 
   const panels = useMemo<Record<PanelKey, DashboardPanel>>(
     () => ({
@@ -61,6 +81,11 @@ export const Dashboard = ({
         description:
           "Find channels without recent activity and move them into an archive category.",
         component: <ArchiveChannelsPanel />,
+      },
+      activity: {
+        title: "Activity history",
+        description: "Review recent dashboard actions for this server.",
+        component: <ActivityHistoryPanel />,
       },
     }),
     [],
@@ -126,25 +151,27 @@ export const Dashboard = ({
     <section>
       {serverContext}
       <ul className={styles.ctaList}>
-        {Object.entries(panels).map(([key, panel]) => (
-          <li key={key}>
-            <button
-              type="button"
-              className={styles.ctaPill}
-              onClick={() => setActivePanel(key as PanelKey)}
-            >
-              <span className={styles.ctaPillText}>
-                <span className={styles.ctaPillTitle}>{panel.title}</span>
-                <span className={styles.ctaPillDescription}>
-                  {panel.description}
+        {Object.entries(panels)
+          .filter(([key]) => key !== "activity")
+          .map(([key, panel]) => (
+            <li key={key}>
+              <button
+                type="button"
+                className={styles.ctaPill}
+                onClick={() => setActivePanel(key as PanelKey)}
+              >
+                <span className={styles.ctaPillText}>
+                  <span className={styles.ctaPillTitle}>{panel.title}</span>
+                  <span className={styles.ctaPillDescription}>
+                    {panel.description}
+                  </span>
                 </span>
-              </span>
-              <span className={styles.ctaPillChevron} aria-hidden="true">
-                →
-              </span>
-            </button>
-          </li>
-        ))}
+                <span className={styles.ctaPillChevron} aria-hidden="true">
+                  →
+                </span>
+              </button>
+            </li>
+          ))}
       </ul>
     </section>
   );

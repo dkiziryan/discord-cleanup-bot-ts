@@ -1,111 +1,111 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import styles from "./UserBadge.module.css";
 import type { AuthUser } from "../../services/auth/auth";
-import type { JobHistoryItem } from "../../models/types";
-import { fetchJobHistory } from "../../services/jobs/jobHistory";
 
 export const UserBadge = ({
   user,
+  onOpenActivityHistory,
   onLogout,
 }: {
   user: AuthUser;
+  onOpenActivityHistory: () => void;
   onLogout: () => void;
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [history, setHistory] = useState<JobHistoryItem[] | null>(null);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
 
-  const toggleMenu = () => {
-    const nextOpen = !menuOpen;
-    setMenuOpen(nextOpen);
-
-    if (nextOpen && !loadingHistory) {
-      setLoadingHistory(true);
-      setHistoryError(null);
-      void fetchJobHistory()
-        .then((jobs) => setHistory(jobs))
-        .catch((error) => setHistoryError((error as Error).message))
-        .finally(() => setLoadingHistory(false));
+  useEffect(() => {
+    if (!menuOpen) {
+      return undefined;
     }
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (
+        accountRef.current &&
+        !accountRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  const openActivityHistory = () => {
+    setMenuOpen(false);
+    onOpenActivityHistory();
   };
+  const initials = buildInitials(user.username);
 
   return (
-    <div className={styles.account}>
-      <div className={styles.badge}>
-        {user.avatarUrl && (
+    <div className={styles.account} ref={accountRef}>
+      <button
+        type="button"
+        className={styles.accountTrigger}
+        onClick={() => setMenuOpen((current) => !current)}
+        aria-label="Open account menu"
+        aria-expanded={menuOpen}
+      >
+        {user.avatarUrl ? (
           <img src={user.avatarUrl} alt="" className={styles.avatar} />
+        ) : (
+          <span className={styles.initials}>{initials}</span>
         )}
-        <button
-          type="button"
-          className={styles.userMenuButton}
-          onClick={toggleMenu}
-          aria-expanded={menuOpen}
-        >
+        <span className={styles.userIdentity}>
           <span className={styles.label}>Signed in as</span>
           <strong>{user.username}</strong>
-        </button>
-        <button type="button" onClick={onLogout}>
-          Logout
-        </button>
-      </div>
+        </span>
+        <span className={styles.chevron} aria-hidden="true">
+          ▾
+        </span>
+      </button>
 
       {menuOpen && (
         <div className={styles.menu}>
-          <div className={styles.menuHeader}>
-            <strong>Activity history</strong>
+          <div className={styles.menuSectionLabel}>Account</div>
+          <div className={styles.menuIdentity}>
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className={styles.menuAvatar} />
+            ) : (
+              <span className={styles.menuInitials}>{initials}</span>
+            )}
+            <strong>{user.username}</strong>
           </div>
-          {loadingHistory && <p className={styles.empty}>Loading history…</p>}
-          {historyError && <p className={styles.error}>{historyError}</p>}
-          {!loadingHistory && !historyError && history?.length === 0 && (
-            <p className={styles.empty}>No activity yet.</p>
-          )}
-          {!loadingHistory && !historyError && history && history.length > 0 && (
-            <ul className={styles.historyList}>
-              {history.map((job) => (
-                <li key={job.id}>
-                  <span className={styles.jobTitle}>{formatJobType(job.type)}</span>
-                  <span className={styles.jobSummary}>
-                    {job.errorMessage ?? job.summary}
-                  </span>
-                  <span className={styles.jobMeta}>
-                    {formatJobStatus(job.status)} · {formatJobDate(job.createdAt)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <button type="button" onClick={openActivityHistory}>
+            Activity history
+          </button>
+          <button type="button" onClick={onLogout}>
+            Logout
+          </button>
         </div>
       )}
     </div>
   );
 };
 
-const formatJobType = (type: string): string => {
-  switch (type) {
-    case "zero_scan":
-      return "Zero-message scan";
-    case "inactive_scan":
-      return "Inactive-member scan";
-    case "kick_csv":
-      return "Kick from CSV";
-    case "cleanup_roles":
-      return "Remove empty roles";
-    case "archive_channels":
-      return "Archive inactive channels";
-    default:
-      return "Dashboard action";
-  }
-};
+const buildInitials = (username: string): string => {
+  const initials = username
+    .split(/\s+/)
+    .map((part) => part.trim()[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
-const formatJobStatus = (status: string): string => {
-  return status.replace(/_/g, " ");
-};
-
-const formatJobDate = (value: string): string => {
-  return new Date(value).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return initials || "U";
 };

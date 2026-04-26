@@ -4,10 +4,11 @@ import styles from "./AdminDashboard.module.css";
 import { AuthCard } from "../auth/AuthCard";
 import { UserBadge } from "../auth/UserBadge";
 import { useAuthState } from "../../hooks/useAuthState";
-import { Dashboard } from "./Dashboard";
+import { Dashboard, type PanelRequest } from "./Dashboard";
 import type { AuthState } from "../../services/auth/auth";
 import { BotInviteCallout } from "./BotInviteCallout";
 import { BOT_INVITE_URL } from "../../config/appLinks";
+import { useState } from "react";
 
 export type AdminDashboardAuthController = {
   authError: string | null;
@@ -30,6 +31,15 @@ export const AdminDashboardView = ({
   authController: AdminDashboardAuthController;
 }) => {
   const { authError, authState, logout, selectGuild } = authController;
+  const [activePanelRequest, setActivePanelRequest] =
+    useState<PanelRequest | null>(null);
+
+  const openActivityHistory = () => {
+    setActivePanelRequest({
+      key: Date.now(),
+      panel: "activity",
+    });
+  };
 
   return (
     <div className={styles.app}>
@@ -44,7 +54,11 @@ export const AdminDashboardView = ({
           </p>
         </div>
         {authState.status === "authorized" && (
-          <UserBadge user={authState.user} onLogout={logout} />
+          <UserBadge
+            user={authState.user}
+            onOpenActivityHistory={openActivityHistory}
+            onLogout={logout}
+          />
         )}
       </header>
 
@@ -83,7 +97,11 @@ export const AdminDashboardView = ({
         )}
 
         {authState.status === "authorized" && (
-          <Dashboard user={authState.user} onSelectGuild={selectGuild} />
+          <Dashboard
+            activePanelRequest={activePanelRequest}
+            user={authState.user}
+            onSelectGuild={selectGuild}
+          />
         )}
       </main>
     </div>

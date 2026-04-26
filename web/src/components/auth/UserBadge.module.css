@@ -3,30 +3,45 @@
   position: relative;
 }
 
-.badge {
+.accountTrigger {
   align-items: center;
   background: var(--discord-bg-floating);
   border: 1px solid var(--discord-border);
   border-radius: var(--discord-radius-lg);
-  display: flex;
-  flex: 0 0 auto;
-  gap: 0.75rem;
-  padding: 0.65rem;
-}
-
-.userMenuButton {
-  background: transparent;
-  border: 0;
   color: var(--discord-text);
   cursor: pointer;
-  padding: 0;
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
   text-align: left;
 }
 
-.avatar {
-  border-radius: 9999px;
+.accountTrigger:hover,
+.accountTrigger[aria-expanded="true"] {
+  background: #43444b;
+  border-color: var(--discord-border-strong);
+}
+
+.avatar,
+.initials {
+  border-radius: 999px;
+  flex: 0 0 auto;
   height: 38px;
   width: 38px;
+}
+
+.initials {
+  align-items: center;
+  background: var(--discord-bg-deep);
+  border: 1px solid var(--discord-border-strong);
+  color: var(--discord-text);
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+}
+
+.userIdentity {
+  min-width: 0;
 }
 
 .label {
@@ -35,73 +50,95 @@
   font-size: 0.75rem;
 }
 
-.badge > button:not(.userMenuButton) {
-  background: var(--discord-bg-deep);
-  border: 1px solid var(--discord-border-strong);
-  border-radius: var(--discord-radius-sm);
-  color: var(--discord-text);
-  cursor: pointer;
-  font-weight: 800;
-  padding: 0.55rem 0.85rem;
+.userIdentity strong {
+  display: block;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  color: var(--discord-text-subtle);
+  font-size: 0.8rem;
+  line-height: 1;
 }
 
 .menu {
   background: var(--discord-bg-floating);
   border: 1px solid var(--discord-border);
   border-radius: var(--discord-radius-lg);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-  max-height: min(70vh, 32rem);
-  min-width: 22rem;
-  overflow: auto;
-  padding: 0.85rem;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+  display: flex;
+  flex-direction: column;
+  min-width: 18rem;
+  overflow: hidden;
+  padding: 1rem 0;
   position: absolute;
   right: 0;
-  top: calc(100% + 0.5rem);
-  width: 28rem;
+  top: calc(100% + 0.75rem);
   z-index: 20;
 }
 
-.menuHeader {
-  border-bottom: 1px solid var(--discord-border);
-  padding-bottom: 0.65rem;
+.menu::before {
+  background: var(--discord-bg-floating);
+  border-left: 1px solid var(--discord-border);
+  border-top: 1px solid var(--discord-border);
+  content: "";
+  height: 0.75rem;
+  position: absolute;
+  right: 1.75rem;
+  top: -0.44rem;
+  transform: rotate(45deg);
+  width: 0.75rem;
 }
 
-.historyList {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  list-style: none;
-  margin: 0.85rem 0 0;
-  padding: 0;
-}
-
-.historyList li {
-  background: var(--discord-bg-deep);
-  border: 1px solid var(--discord-border);
-  border-radius: var(--discord-radius-md);
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
-}
-
-.jobTitle {
-  font-weight: 800;
-}
-
-.jobSummary,
-.jobMeta,
-.empty {
+.menuSectionLabel {
   color: var(--discord-text-subtle);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0 1.25rem 0.75rem;
+  text-transform: uppercase;
 }
 
-.jobSummary,
-.jobMeta {
-  font-size: 0.85rem;
+.menuIdentity {
+  align-items: center;
+  border-bottom: 1px solid var(--discord-border);
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  padding: 0 1.25rem 1rem;
 }
 
-.error {
-  color: var(--discord-red);
+.menuAvatar,
+.menuInitials {
+  border-radius: 999px;
+  height: 34px;
+  width: 34px;
+}
+
+.menuInitials {
+  align-items: center;
+  background: var(--discord-bg-deep);
+  border: 1px solid var(--discord-border-strong);
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+}
+
+.menu button {
+  background: transparent;
+  border: 0;
+  color: var(--discord-text);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0.8rem 1.25rem;
+  text-align: left;
+}
+
+.menu button:hover {
+  background: var(--discord-bg-deep);
 }
 
 @media (max-width: 760px) {
@@ -109,7 +146,7 @@
     width: 100%;
   }
 
-  .badge {
+  .accountTrigger {
     justify-content: space-between;
     width: 100%;
   }
