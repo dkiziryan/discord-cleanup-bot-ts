@@ -7,10 +7,11 @@ export const writeUserCsv = async (
   prefix: string,
   rows: string[][],
   scope: CsvOwnerScope,
+  headers: string[] = ["User ID", "Username"],
 ): Promise<string> => {
   const filename = datedCsvFilename(prefix);
 
-  const lines = [["User ID", "Username"], ...rows].map((columns) =>
+  const lines = [headers, ...rows].map((columns) =>
     columns.map(escapeCsvCell).join(","),
   );
 

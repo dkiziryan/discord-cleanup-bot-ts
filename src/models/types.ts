@@ -11,6 +11,7 @@ export type ScanZeroMessagesOptions = {
   discordUserId: string;
   targetChannelNames: string[];
   dryRun?: boolean;
+  countReactionsAsActivity?: boolean;
   isCancelled?: () => boolean;
   progressCallbacks?: ScanProgressCallbacks;
 };
@@ -20,6 +21,7 @@ export type ScanZeroMessagesResult = {
   totalMembersChecked: number;
   totalMessagesScanned: number;
   zeroMessageUsers: GuildMember[];
+  lastActivityByMemberId: Map<string, LastActivityType>;
   skippedChannels: string[];
   processedChannels: string[];
   csvPath: string;
@@ -70,9 +72,12 @@ export type ScanInactiveMembersOptions = {
   discordUserId: string;
   days: number;
   excludedCategories?: string[];
+  countReactionsAsActivity?: boolean;
   progressCallbacks?: ScanProgressCallbacks;
   isCancelled?: () => boolean;
 };
+
+export type LastActivityType = "none" | "message" | "reaction";
 
 export type ScanInactiveMembersResult = {
   guildName: string;
@@ -80,6 +85,7 @@ export type ScanInactiveMembersResult = {
   totalMembersChecked: number;
   totalMessagesScanned: number;
   inactiveMembers: GuildMember[];
+  lastActivityByMemberId: Map<string, LastActivityType>;
   skippedChannels: string[];
   processedChannels: string[];
   csvPath: string;
@@ -167,4 +173,20 @@ export type InactiveScanStatus = {
 };
 export type CsvFileListResponse = {
   files: CsvFileMetadata[];
+};
+
+export type JobHistoryItem = {
+  id: string;
+  type: string;
+  status: string;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  guildId: string | null;
+  summary: string;
+  errorMessage: string | null;
+};
+
+export type JobHistoryResponse = {
+  jobs: JobHistoryItem[];
 };

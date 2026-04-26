@@ -13,6 +13,16 @@ type FakeMessage = {
   id: string;
   createdTimestamp: number;
   author: { bot: boolean; id: string };
+  reactions?: {
+    cache: Map<
+      string,
+      {
+        users: {
+          fetch: () => Promise<Map<string, { id: string; bot: boolean }>>;
+        };
+      }
+    >;
+  };
 };
 
 const createCollection = <T extends { id: string }>(items: T[]) => {
@@ -158,4 +168,63 @@ test("scanInactiveMembers reports total eligible members checked, not remaining 
   assert.equal(result.totalMembersChecked, 2);
   assert.equal(result.inactiveMembers.length, 1);
   assert.equal(result.inactiveMembers[0]?.id, "member-inactive");
+});
+
+test("scanInactiveMembers can count reactions as activity", async () => {
+  const now = Date.now();
+  const oldJoin = now - 120 * 24 * 60 * 60 * 1000;
+  const cutoffRecentMessage = now - 5 * 24 * 60 * 60 * 1000;
+
+  const reaction = {
+    users: {
+      fetch: async () =>
+        new Map([["member-reactive", { id: "member-reactive", bot: false }]]),
+    },
+  };
+
+  const guild = createGuild({
+    members: [
+      {
+        id: "member-reactive",
+        user: { bot: false, tag: "reactive#1234" },
+        displayName: "Reactive User",
+        joinedTimestamp: oldJoin,
+      },
+      {
+        id: "member-inactive",
+        user: { bot: false, tag: "inactive#1234" },
+        displayName: "Inactive User",
+        joinedTimestamp: oldJoin,
+      },
+    ],
+    channels: [
+      createTextChannel({
+        id: "channel-1",
+        name: "general",
+        messages: [
+          {
+            id: "message-1",
+            createdTimestamp: cutoffRecentMessage,
+            author: { bot: true, id: "bot-user" },
+            reactions: {
+              cache: new Map([["reaction-1", reaction]]),
+            },
+          },
+        ],
+      }),
+    ],
+  });
+
+  const client = createClient(guild);
+
+  const result = await scanInactiveMembers(client as never, {
+    guildId: "123",
+    discordUserId: "456",
+    days: 30,
+    countReactionsAsActivity: true,
+  });
+
+  assert.equal(result.inactiveMembers.length, 1);
+  assert.equal(result.inactiveMembers[0]?.id, "member-inactive");
+  assert.equal(result.lastActivityByMemberId.get("member-reactive"), "reaction");
 });

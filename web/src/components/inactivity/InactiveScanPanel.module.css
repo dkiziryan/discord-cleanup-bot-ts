@@ -37,6 +37,17 @@
   font-weight: 400;
 }
 
+.form .checkboxRow {
+  align-items: center;
+  flex-direction: row;
+  font-weight: 700;
+}
+
+.checkboxRow input {
+  height: 1rem;
+  width: 1rem;
+}
+
 .actions {
   align-items: center;
   display: flex;

@@ -12,6 +12,7 @@ import {
   scanChannelHistorySince,
 } from "./inactiveScannerHelpers";
 import {
+  LastActivityType,
   ScanInactiveMembersOptions,
   ScanInactiveMembersResult,
 } from "../../models/types";
@@ -35,6 +36,7 @@ export const scanInactiveMembers = async (
     discordUserId,
     days,
     excludedCategories = [],
+    countReactionsAsActivity = true,
     progressCallbacks,
     isCancelled,
   } = options;
@@ -59,6 +61,7 @@ export const scanInactiveMembers = async (
     (member) => !member.user.bot && !ignoredUserIds.has(member.id),
   );
   const remainingIds = new Set(members.keys());
+  const lastActivityByMemberId = new Map<string, LastActivityType>();
 
   // Exclude members who joined after the cutoff; they haven't had enough time to be considered inactive.
   for (const member of members.values()) {
@@ -70,16 +73,22 @@ export const scanInactiveMembers = async (
   const totalMembersChecked = remainingIds.size;
 
   if (members.size === 0 || remainingIds.size === 0) {
-    const csvPath = await writeUserCsv(`inactive_${days}d`, [], {
-      guildId,
-      discordUserId,
-    });
+    const csvPath = await writeUserCsv(
+      `inactive_${days}d`,
+      [],
+      {
+        guildId,
+        discordUserId,
+      },
+      ["User ID", "Username", "Last Activity Type"],
+    );
     return {
       guildName: guild.name,
       cutoffIso: cutoff.toISOString(),
       totalMembersChecked,
       totalMessagesScanned: 0,
       inactiveMembers: [],
+      lastActivityByMemberId,
       skippedChannels: [],
       processedChannels: [],
       csvPath,
@@ -153,6 +162,8 @@ export const scanInactiveMembers = async (
           cutoff,
           remainingIds,
           {
+            countReactionsAsActivity,
+            lastActivityByMemberId,
             onCheckCancelled: throwIfCancelled,
           },
         );
@@ -195,13 +206,15 @@ export const scanInactiveMembers = async (
 
   const csvRows = inactiveMembers.map((member) => ({
     id: member.id,
+    lastActivityType: lastActivityByMemberId.get(member.id) ?? "none",
     username: formatDiscordName(member),
   }));
 
   const csvPath = await writeUserCsv(
     `inactive_${days}d`,
-    csvRows.map((row) => [row.id, row.username]),
+    csvRows.map((row) => [row.id, row.username, row.lastActivityType]),
     { guildId, discordUserId },
+    ["User ID", "Username", "Last Activity Type"],
   );
 
   const previewNames = inactiveMembers
@@ -220,6 +233,7 @@ export const scanInactiveMembers = async (
     totalMembersChecked,
     totalMessagesScanned,
     inactiveMembers,
+    lastActivityByMemberId,
     skippedChannels,
     processedChannels,
     csvPath,

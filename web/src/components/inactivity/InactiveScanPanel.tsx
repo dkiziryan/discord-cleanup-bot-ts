@@ -13,6 +13,7 @@ import { InactiveProgressIndicator } from "./InactiveProgressIndicator";
 export const InactiveScanPanel = () => {
   const [days, setDays] = useState(180);
   const [excludedValue, setExcludedValue] = useState("");
+  const [countReactionsAsActivity, setCountReactionsAsActivity] = useState(true);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -85,6 +86,7 @@ export const InactiveScanPanel = () => {
       const response = await requestInactiveScan({
         days,
         excludedCategories: categories.length > 0 ? categories : undefined,
+        countReactionsAsActivity,
       });
       setResult(response);
       setStatusMessage(response.message);
@@ -155,6 +157,15 @@ export const InactiveScanPanel = () => {
               ? defaultCategories.map((category) => `“${category}”`).join(", ")
               : "no categories"}
           </small>
+        </label>
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={countReactionsAsActivity}
+            onChange={(event) => setCountReactionsAsActivity(event.target.checked)}
+            disabled={loading}
+          />
+          <span>Count reactions as activity</span>
         </label>
         <div className={styles.actions}>
           <button type="button" onClick={handleScan} disabled={loading} className="primary-button">

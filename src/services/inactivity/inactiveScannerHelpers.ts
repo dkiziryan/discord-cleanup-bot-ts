@@ -7,6 +7,7 @@ import {
   GuildTextBasedChannel,
 } from "discord.js";
 import { formatDiscordName } from "../../utils/discordMemberName";
+import type { LastActivityType } from "../../models/types";
 
 export const buildExcludedCategorySet = (categories: string[]): Set<string> => {
   return new Set(
@@ -167,9 +168,15 @@ export const scanChannelHistorySince = async (
   channel: GuildTextBasedChannel,
   cutoff: Date,
   remainingIds: Set<string>,
-  options?: { onCheckCancelled?: () => void },
+  options?: {
+    countReactionsAsActivity?: boolean;
+    lastActivityByMemberId?: Map<string, LastActivityType>;
+    onCheckCancelled?: () => void;
+  },
 ): Promise<{ totalMessages: number }> => {
   const onCheckCancelled = options?.onCheckCancelled;
+  const countReactionsAsActivity = options?.countReactionsAsActivity ?? false;
+  const lastActivityByMemberId = options?.lastActivityByMemberId;
   let totalMessages = 0;
   let lastMessageId: string | undefined;
   let reachedCutoff = false;
@@ -198,12 +205,34 @@ export const scanChannelHistorySince = async (
       }
 
       totalMessages += 1;
-      if (message.author.bot) {
-        continue;
+
+      if (!message.author.bot && remainingIds.has(message.author.id)) {
+        remainingIds.delete(message.author.id);
+        lastActivityByMemberId?.set(message.author.id, "message");
       }
 
-      if (remainingIds.has(message.author.id)) {
-        remainingIds.delete(message.author.id);
+      const reactions = message.reactions?.cache;
+      if (countReactionsAsActivity && reactions && remainingIds.size > 0) {
+        for (const reaction of reactions.values()) {
+          onCheckCancelled?.();
+          const users = await reaction.users.fetch().catch(() => null);
+          if (!users) {
+            continue;
+          }
+
+          for (const user of users.values()) {
+            if (user.bot || !remainingIds.has(user.id)) {
+              continue;
+            }
+
+            remainingIds.delete(user.id);
+            lastActivityByMemberId?.set(user.id, "reaction");
+          }
+
+          if (remainingIds.size === 0) {
+            break;
+          }
+        }
       }
 
       if (remainingIds.size === 0) {

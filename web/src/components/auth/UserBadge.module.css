@@ -1,3 +1,8 @@
+.account {
+  flex: 0 0 auto;
+  position: relative;
+}
+
 .badge {
   align-items: center;
   background: var(--discord-bg-floating);
@@ -7,6 +12,15 @@
   flex: 0 0 auto;
   gap: 0.75rem;
   padding: 0.65rem;
+}
+
+.userMenuButton {
+  background: transparent;
+  border: 0;
+  color: var(--discord-text);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
 }
 
 .avatar {
@@ -21,7 +35,7 @@
   font-size: 0.75rem;
 }
 
-.badge button {
+.badge > button:not(.userMenuButton) {
   background: var(--discord-bg-deep);
   border: 1px solid var(--discord-border-strong);
   border-radius: var(--discord-radius-sm);
@@ -31,9 +45,77 @@
   padding: 0.55rem 0.85rem;
 }
 
+.menu {
+  background: var(--discord-bg-floating);
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-lg);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  max-height: min(70vh, 32rem);
+  min-width: 22rem;
+  overflow: auto;
+  padding: 0.85rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  width: 28rem;
+  z-index: 20;
+}
+
+.menuHeader {
+  border-bottom: 1px solid var(--discord-border);
+  padding-bottom: 0.65rem;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+}
+
+.historyList li {
+  background: var(--discord-bg-deep);
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+}
+
+.jobTitle {
+  font-weight: 800;
+}
+
+.jobSummary,
+.jobMeta,
+.empty {
+  color: var(--discord-text-subtle);
+}
+
+.jobSummary,
+.jobMeta {
+  font-size: 0.85rem;
+}
+
+.error {
+  color: var(--discord-red);
+}
+
 @media (max-width: 760px) {
+  .account {
+    width: 100%;
+  }
+
   .badge {
     justify-content: space-between;
+    width: 100%;
+  }
+
+  .menu {
+    min-width: 0;
     width: 100%;
   }
 }

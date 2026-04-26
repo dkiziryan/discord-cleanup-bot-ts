@@ -22,6 +22,7 @@ export type ApiError = {
 export type ZeroMessagesRequest = {
   channelNames?: string[];
   dryRun?: boolean;
+  countReactionsAsActivity?: boolean;
 };
 
 export type ScanStatus = {
@@ -63,6 +64,22 @@ export type CsvFileMetadata = {
 
 export type CsvFileListResponse = {
   files: CsvFileMetadata[];
+};
+
+export type JobHistoryItem = {
+  id: string;
+  type: string;
+  status: string;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  guildId: string | null;
+  summary: string;
+  errorMessage: string | null;
+};
+
+export type JobHistoryResponse = {
+  jobs: JobHistoryItem[];
 };
 
 export type KickFromCsvFileResult = {

@@ -35,6 +35,7 @@ import {
   completeJob,
   createRunningJob,
   failJob,
+  listJobHistory,
   registerCsvArtifact,
 } from "./services/jobs/jobService";
 import {
@@ -568,6 +569,21 @@ export const startHttpServer = (
     }
   });
 
+  app.get("/api/job-history", async (req, res) => {
+    const activeGuildId = requireSelectedGuildId(req, res);
+    if (!activeGuildId) {
+      return;
+    }
+
+    const discordUserId = requireAuthenticatedDiscordUserId(req, res);
+    if (!discordUserId) {
+      return;
+    }
+
+    const jobs = await listJobHistory(discordUserId, activeGuildId);
+    res.json({ jobs });
+  });
+
   app.get("/api/csv-files/:filename/download", async (req, res) => {
     const activeGuildId = requireSelectedGuildId(req, res);
     if (!activeGuildId) {
@@ -801,6 +817,7 @@ export const startHttpServer = (
 
     const requestChannels = parseChannelNames(req.body?.channelNames);
     const dryRun = Boolean(req.body?.dryRun);
+    const countReactionsAsActivity = Boolean(req.body?.countReactionsAsActivity);
     const discordUserId = requireAuthenticatedDiscordUserId(req, res);
     if (!discordUserId) {
       return;
@@ -818,6 +835,7 @@ export const startHttpServer = (
         discordUserId,
         inputJson: {
           dryRun,
+          countReactionsAsActivity,
           guildId: activeGuildId,
           targetChannelNames,
         },
@@ -862,6 +880,7 @@ export const startHttpServer = (
         discordUserId,
         targetChannelNames,
         dryRun,
+        countReactionsAsActivity,
         isCancelled: cancellationController.isCancelled,
         progressCallbacks: {
           onChannelStart(channelName, index, total) {
@@ -999,6 +1018,10 @@ export const startHttpServer = (
       typeof req.body?.days === "number" && Number.isFinite(req.body.days)
         ? Math.max(1, req.body.days)
         : 30;
+    const countReactionsAsActivity =
+      req.body?.countReactionsAsActivity === undefined
+        ? true
+        : Boolean(req.body.countReactionsAsActivity);
     const discordUserId = requireAuthenticatedDiscordUserId(req, res);
     if (!discordUserId) {
       return;
@@ -1030,6 +1053,7 @@ export const startHttpServer = (
         inputJson: {
           days: requestedDays,
           excludedCategories,
+          countReactionsAsActivity,
           guildId: activeGuildId,
         },
         type: "inactive_scan",
@@ -1061,6 +1085,7 @@ export const startHttpServer = (
         discordUserId,
         days: requestedDays,
         excludedCategories,
+        countReactionsAsActivity,
         isCancelled: inactiveController.isCancelled,
         progressCallbacks: {
           onChannelStart(channelName, index, total) {

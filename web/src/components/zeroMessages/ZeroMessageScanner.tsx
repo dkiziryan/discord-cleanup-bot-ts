@@ -14,6 +14,7 @@ import { ZeroScanResults } from "./ZeroScanResults";
 export const ZeroMessageScanner = () => {
   const [channelInput, setChannelInput] = useState("");
   const [dryRun, setDryRun] = useState(false);
+  const [countReactionsAsActivity, setCountReactionsAsActivity] = useState(false);
   const [activeView, setActiveView] = useState<"scan" | "results">("scan");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -140,6 +141,7 @@ export const ZeroMessageScanner = () => {
     try {
       await requestZeroMessageScan({
         channelNames: userChannels.length > 0 ? userChannels : undefined,
+        countReactionsAsActivity,
         dryRun,
       });
     } catch (error) {
@@ -181,6 +183,15 @@ export const ZeroMessageScanner = () => {
                 disabled={loading}
               />
               <span>Dry run (connect to Discord without scanning channels)</span>
+            </label>
+            <label className={styles.dryRunToggle}>
+              <input
+                type="checkbox"
+                checked={countReactionsAsActivity}
+                onChange={(event) => setCountReactionsAsActivity(event.target.checked)}
+                disabled={loading}
+              />
+              <span>Count reactions as activity</span>
             </label>
             <div className={styles.actions}>
               <button type="submit" disabled={loading}>

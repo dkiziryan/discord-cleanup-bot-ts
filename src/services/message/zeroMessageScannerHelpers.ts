@@ -4,6 +4,7 @@ import {
   type Guild,
   type TextChannel,
 } from "discord.js";
+import type { LastActivityType } from "../../models/types";
 
 export const fetchGuild = async (client: Client, guildId: string): Promise<Guild> => {
   try {
@@ -37,11 +38,18 @@ export const scanChannelHistory = async (
   channel: TextChannel,
   remainingIds: Set<string>,
   options: {
+    countReactionsAsActivity?: boolean;
+    lastActivityByMemberId?: Map<string, LastActivityType>;
     onMemberProgress?: () => void;
     onCheckCancelled?: () => void;
   },
 ): Promise<{ totalMessages: number }> => {
-  const { onMemberProgress, onCheckCancelled } = options;
+  const {
+    countReactionsAsActivity = false,
+    lastActivityByMemberId,
+    onMemberProgress,
+    onCheckCancelled,
+  } = options;
   let totalMessages = 0;
   let lastMessageId: string | undefined;
 
@@ -68,13 +76,35 @@ export const scanChannelHistory = async (
       onCheckCancelled?.();
       totalMessages += 1;
 
-      if (message.author.bot) {
-        continue;
+      if (!message.author.bot && remainingIds.has(message.author.id)) {
+        remainingIds.delete(message.author.id);
+        lastActivityByMemberId?.set(message.author.id, "message");
+        onMemberProgress?.();
       }
 
-      if (remainingIds.has(message.author.id)) {
-        remainingIds.delete(message.author.id);
-        onMemberProgress?.();
+      const reactions = message.reactions?.cache;
+      if (countReactionsAsActivity && reactions && remainingIds.size > 0) {
+        for (const reaction of reactions.values()) {
+          onCheckCancelled?.();
+          const users = await reaction.users.fetch().catch(() => null);
+          if (!users) {
+            continue;
+          }
+
+          for (const user of users.values()) {
+            if (user.bot || !remainingIds.has(user.id)) {
+              continue;
+            }
+
+            remainingIds.delete(user.id);
+            lastActivityByMemberId?.set(user.id, "reaction");
+            onMemberProgress?.();
+          }
+
+          if (remainingIds.size === 0) {
+            break;
+          }
+        }
       }
 
       if (remainingIds.size === 0) {

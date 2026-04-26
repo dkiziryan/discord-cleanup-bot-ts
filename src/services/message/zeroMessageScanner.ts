@@ -4,11 +4,13 @@ import { Client, DiscordAPIError, GuildMember } from "discord.js";
 
 import { ScanCancelledError } from "../errors";
 
+import { loadIgnoredUserIds } from "../csv/kickFromCsv";
 import { writeUserCsv } from "../csv/userCsv";
 import { formatDiscordName } from "../../utils/discordMemberName";
 import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";
 
 import type {
+  LastActivityType,
   ScanZeroMessagesOptions,
   ScanZeroMessagesResult,
 } from "../../models/types";
@@ -36,6 +38,7 @@ export const scanZeroMessageUsers = async (
     discordUserId,
     targetChannelNames,
     dryRun = false,
+    countReactionsAsActivity = false,
     progressCallbacks,
     isCancelled,
   } = options;
@@ -50,12 +53,18 @@ export const scanZeroMessageUsers = async (
   const guild = await fetchGuild(client, guildId);
 
   if (dryRun) {
-    const csvPath = await writeUserCsv("users", [], { guildId, discordUserId });
+    const csvPath = await writeUserCsv(
+      "users",
+      [],
+      { guildId, discordUserId },
+      ["User ID", "Username", "Last Activity Type"],
+    );
     return {
       guildName: guild.name,
       totalMembersChecked: 0,
       totalMessagesScanned: 0,
       zeroMessageUsers: [],
+      lastActivityByMemberId: new Map(),
       skippedChannels: [],
       processedChannels: [],
       csvPath,
@@ -70,9 +79,15 @@ export const scanZeroMessageUsers = async (
   await guild.channels.fetch();
   throwIfCancelled();
 
+  const ignoredUserIds = await loadIgnoredUserIds();
   const members = guild.members.cache.filter((member) => !member.user.bot);
-  const remainingIds = new Set(members.keys());
-  const totalMembers = members.size;
+  const remainingIds = new Set(
+    Array.from(members.keys()).filter(
+      (memberId) => !ignoredUserIds.has(memberId),
+    ),
+  );
+  const lastActivityByMemberId = new Map<string, LastActivityType>();
+  const totalMembers = remainingIds.size;
   const updateMemberProgress = () => {
     progressCallbacks?.onMemberProgress?.(
       totalMembers - remainingIds.size,
@@ -81,13 +96,19 @@ export const scanZeroMessageUsers = async (
   };
   updateMemberProgress();
 
-  if (members.size === 0) {
-    const csvPath = await writeUserCsv("users", [], { guildId, discordUserId });
+  if (remainingIds.size === 0) {
+    const csvPath = await writeUserCsv(
+      "users",
+      [],
+      { guildId, discordUserId },
+      ["User ID", "Username", "Last Activity Type"],
+    );
     return {
       guildName: guild.name,
       totalMembersChecked: 0,
       totalMessagesScanned: 0,
       zeroMessageUsers: [],
+      lastActivityByMemberId,
       skippedChannels: [],
       processedChannels: [],
       csvPath,
@@ -131,6 +152,8 @@ export const scanZeroMessageUsers = async (
 
       try {
         const channelStats = await scanChannelHistory(channel, remainingIds, {
+          countReactionsAsActivity,
+          lastActivityByMemberId,
           onMemberProgress: updateMemberProgress,
           onCheckCancelled: throwIfCancelled,
         });
@@ -179,14 +202,16 @@ export const scanZeroMessageUsers = async (
 
   const csvRows = zeroMessageUsers.map((member) => ({
     id: member.id,
+    lastActivityType: lastActivityByMemberId.get(member.id) ?? "none",
     username: formatDiscordName(member),
   }));
 
   throwIfCancelled();
   const csvPath = await writeUserCsv(
     "users",
-    csvRows.map((row) => [row.id, row.username]),
+    csvRows.map((row) => [row.id, row.username, row.lastActivityType]),
     { guildId, discordUserId },
+    ["User ID", "Username", "Last Activity Type"],
   );
 
   const previewNames = zeroMessageUsers
@@ -201,9 +226,10 @@ export const scanZeroMessageUsers = async (
 
   return {
     guildName: guild.name,
-    totalMembersChecked: members.size,
+    totalMembersChecked: totalMembers,
     totalMessagesScanned,
     zeroMessageUsers,
+    lastActivityByMemberId,
     skippedChannels,
     processedChannels,
     csvPath,
