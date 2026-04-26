@@ -102,6 +102,13 @@ Required local environment variables:
 - `WEB_APP_URL`: local Vite URL, usually `http://localhost:5173`
 - `INACTIVE_EXCLUDED_CATEGORIES`: optional comma-separated fallback category exclusions
 - `CSV_DIRECTORY`: optional CSV export directory; defaults to local `csv/`
+- `CSV_STORAGE_DRIVER`: optional CSV storage backend; use `s3` for an S3-compatible private bucket, otherwise local disk is used
+- `S3_BUCKET`: required when `CSV_STORAGE_DRIVER=s3`
+- `S3_REGION`: required by AWS S3 and most compatible providers; defaults to `us-east-1`
+- `S3_ENDPOINT`: optional S3-compatible endpoint for providers such as Railway volumes/object storage, Cloudflare R2, or MinIO
+- `S3_ACCESS_KEY_ID`: required when `CSV_STORAGE_DRIVER=s3`
+- `S3_SECRET_ACCESS_KEY`: required when `CSV_STORAGE_DRIVER=s3`
+- `S3_FORCE_PATH_STYLE`: optional; defaults to `true` when `S3_ENDPOINT` is set
 - `CSV_FILE_LIMIT_BYTES`: optional per-export cap; defaults to `20971520` (20 MB)
 - `CSV_STORAGE_LIMIT_BYTES`: optional total CSV storage cap; defaults to `1073741824` (1 GB)
 - `SCAN_CHANNEL_CONCURRENCY`: optional zero-message scan concurrency; defaults to `3` and caps at `5`
@@ -151,6 +158,8 @@ Required Railway service variables:
 Optional Railway CSV variables:
 
 - `CSV_DIRECTORY`: use this if a Railway volume is mounted, for example `/data/csv`
+- `CSV_STORAGE_DRIVER=s3`: use this with a private S3-compatible bucket instead of local disk
+- `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`: bucket connection settings when S3 CSV storage is enabled
 - `CSV_FILE_LIMIT_BYTES`: per-export cap; defaults to 20 MB
 - `CSV_STORAGE_LIMIT_BYTES`: total CSV storage cap; defaults to 1 GB
 - `SCAN_CHANNEL_CONCURRENCY`: zero-message scan concurrency; defaults to 3 and caps at 5
@@ -203,8 +212,9 @@ The hosted dashboard is the primary interface. These shortcuts are retained for 
 
 ## Output and Safety
 
-- CSV exports are written to `csv/` locally with timestamped filenames
+- CSV exports are written to `csv/` locally by default, or to `csv/<guildId>/<discordUserId>/` in a private S3-compatible bucket when `CSV_STORAGE_DRIVER=s3`
 - CSV exports are scoped by selected server and logged-in Discord user
+- CSV downloads are served through the authenticated API so users can only download CSVs for their selected server and Discord user
 - The `csv/` directory is created automatically and ignored by git
 - Generated CSV files are capped at 20 MB by default, and total CSV storage is capped at 1 GB by default
 - Destructive workflows use previews or dry runs before live actions where possible

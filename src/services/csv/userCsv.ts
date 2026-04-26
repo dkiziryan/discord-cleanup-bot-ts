@@ -1,10 +1,5 @@
-import { promises as fs } from "fs";
-import path from "path";
-
 import {
-  assertCsvFileWithinLimit,
-  ensureCsvStorageCapacity,
-  getScopedCsvDirectory,
+  writeScopedCsvFile,
   type CsvOwnerScope,
 } from "./csvStorage";
 
@@ -13,23 +8,14 @@ export const writeUserCsv = async (
   rows: string[][],
   scope: CsvOwnerScope,
 ): Promise<string> => {
-  const csvDirectory = getScopedCsvDirectory(scope);
-  await fs.mkdir(csvDirectory, { recursive: true });
-
   const filename = datedCsvFilename(prefix);
-  const filepath = path.join(csvDirectory, filename);
 
   const lines = [["User ID", "Username"], ...rows].map((columns) =>
     columns.map(escapeCsvCell).join(","),
   );
 
   const contents = lines.join("\n");
-  const sizeBytes = Buffer.byteLength(contents, "utf8");
-  assertCsvFileWithinLimit(sizeBytes);
-  await ensureCsvStorageCapacity(sizeBytes);
-  await fs.writeFile(filepath, contents, "utf8");
-
-  return filepath;
+  return writeScopedCsvFile(filename, contents, scope);
 };
 
 const datedCsvFilename = (prefix: string): string => {

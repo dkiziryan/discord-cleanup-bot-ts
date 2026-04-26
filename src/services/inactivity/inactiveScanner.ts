@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { Client, Collection, DiscordAPIError } from "discord.js";
 
 import {
@@ -20,7 +22,7 @@ import { writeUserCsv } from "../csv/userCsv";
 import { ScanCancelledError } from "../errors";
 
 // Cap how many inactive member names we preview in the API response to keep payloads small.
-const SUMMARY_PREVIEW_LIMIT = 50;
+const SUMMARY_PREVIEW_LIMIT = 10;
 // Limit how many skipped-channel reasons we show up front before summarizing the rest.
 const SKIPPED_PREVIEW_LIMIT = 10;
 
@@ -232,7 +234,7 @@ export const mapInactiveResultToResponse = (
 ) => {
   return {
     guildName: result.guildName,
-    csvPath: result.csvPath,
+    csvPath: path.basename(result.csvPath),
     cutoffIso: result.cutoffIso,
     inactiveCount: result.inactiveMembers.length,
     totalMembersChecked: result.totalMembersChecked,

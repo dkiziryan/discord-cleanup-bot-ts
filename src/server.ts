@@ -15,6 +15,7 @@ import {
 } from "./services/message/zeroMessageScanner";
 import { ScanCancelledError } from "./services/errors";
 import { listCsvFiles } from "./services/csv/csvManager";
+import { readScopedCsvFile } from "./services/csv/csvStorage";
 
 import type {
   CsvFileListResponse,
@@ -564,6 +565,36 @@ export const startHttpServer = (
       res.json(payload);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/csv-files/:filename/download", async (req, res) => {
+    const activeGuildId = requireSelectedGuildId(req, res);
+    if (!activeGuildId) {
+      return;
+    }
+
+    const discordUserId = requireAuthenticatedDiscordUserId(req, res);
+    if (!discordUserId) {
+      return;
+    }
+
+    try {
+      const csvFile = await readScopedCsvFile(req.params.filename, {
+        guildId: activeGuildId,
+        discordUserId,
+      });
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${csvFile.filename.replace(/"/g, "")}"`,
+      );
+      res.setHeader("Content-Length", String(csvFile.size));
+      res.send(csvFile.contents);
+    } catch (error) {
+      const message = (error as Error).message;
+      const status = message.includes("not found") ? 404 : 400;
+      res.status(status).json({ message });
     }
   });
 

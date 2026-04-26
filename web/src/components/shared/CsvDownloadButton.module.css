@@ -1,0 +1,12 @@
+.button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.compact {
+  min-height: 30px;
+  padding: 0.35rem 0.6rem;
+  white-space: nowrap;
+}

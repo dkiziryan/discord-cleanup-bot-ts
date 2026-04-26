@@ -5,7 +5,7 @@ import { PermissionFlagsBits } from "discord.js";
 import { KickFromCsvRequest, KickFromCsvFileResult } from "../../models/types";
 import { formatDiscordName } from "../../utils/discordMemberName";
 import { ScanCancelledError } from "../errors";
-import { resolveCsvPath, readCsvRows } from "./csvInput";
+import { readCsvRows, readCsvRowsByFilename } from "./csvInput";
 import type { CsvOwnerScope } from "./csvStorage";
 
 const IGNORE_DIRECTORY = path.resolve(process.cwd(), "ignore");
@@ -53,8 +53,7 @@ export const kickMembersFromCsv = async (
 
   for (const filename of uniqFilenames) {
     throwIfCancelled();
-    const csvPath = await resolveCsvPath(filename, csvScope);
-    const rows = await readCsvRows(csvPath);
+    const rows = await readCsvRowsByFilename(filename, csvScope);
 
     const summary: KickFromCsvFileResult = {
       filename,

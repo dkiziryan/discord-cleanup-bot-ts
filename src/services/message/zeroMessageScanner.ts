@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { Client, DiscordAPIError, GuildMember } from "discord.js";
 
 import { ScanCancelledError } from "../errors";
@@ -22,7 +24,7 @@ export type {
   ScanZeroMessagesResult,
 } from "../../models/types";
 
-const SUMMARY_PREVIEW_LIMIT = 20;
+const SUMMARY_PREVIEW_LIMIT = 10;
 const SKIPPED_PREVIEW_LIMIT = 5;
 
 export const scanZeroMessageUsers = async (
@@ -214,7 +216,7 @@ export const scanZeroMessageUsers = async (
 export const mapResultToResponse = (result: ScanZeroMessagesResult) => {
   return {
     guildName: result.guildName,
-    csvPath: result.csvPath,
+    csvPath: path.basename(result.csvPath),
     zeroMessageCount: result.zeroMessageUsers.length,
     totalMembersChecked: result.totalMembersChecked,
     totalMessagesScanned: result.totalMessagesScanned,

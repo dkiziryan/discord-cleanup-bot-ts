@@ -48,7 +48,15 @@
   align-items: flex-start;
   cursor: pointer;
   display: flex;
+  flex: 1;
   gap: 0.75rem;
+}
+
+.csvItem {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
 }
 
 .csvItem input {
@@ -64,6 +72,10 @@
 
 .csvItem small {
   color: var(--discord-text-subtle);
+}
+
+.downloadLink {
+  font-size: 0.85rem;
 }
 
 .actions {

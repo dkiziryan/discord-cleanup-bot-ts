@@ -9,6 +9,7 @@ import type {
 import { fetchCsvFiles } from "../../services/csv/csvFiles";
 import { kickFromCsv } from "../../services/csv/kickFromCsv";
 import { cancelKickJob } from "../../services/csv/cancelKick";
+import { CsvDownloadButton } from "../shared/CsvDownloadButton";
 
 export const KickFromCsvPanel = () => {
   const [files, setFiles] = useState<CsvFileMetadata[]>([]);
@@ -155,6 +156,12 @@ export const KickFromCsvPanel = () => {
                       </small>
                     </span>
                   </label>
+                  <CsvDownloadButton
+                    className={styles.downloadLink}
+                    filename={file.filename}
+                    label="Download"
+                    size="compact"
+                  />
                 </li>
               ))}
             </ul>

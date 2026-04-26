@@ -6,6 +6,7 @@ import { requestInactiveScan } from "../../services/inactivity/inactiveScan";
 import { cancelInactiveScan } from "../../services/inactivity/cancelInactiveScan";
 import { fetchInactiveStatus } from "../../services/inactivity/inactiveStatus";
 import { fetchDefaultInactiveCategories } from "../../services/inactivity/inactiveDefaults";
+import { CsvDownloadButton } from "../shared/CsvDownloadButton";
 import { ResultTile } from "../shared/ResultTile";
 import { InactiveProgressIndicator } from "./InactiveProgressIndicator";
 
@@ -193,6 +194,7 @@ export const InactiveScanPanel = () => {
             <ResultTile label="Cutoff" value={new Date(result.data.cutoffIso).toLocaleString()} />
             <ResultTile label="CSV file" value={result.data.csvPath} monospace />
           </div>
+          <CsvDownloadButton filename={result.data.csvPath} />
           {result.data.skippedPreview && (
             <p className={styles.skipped}>Skipped channels: {result.data.skippedPreview}</p>
           )}

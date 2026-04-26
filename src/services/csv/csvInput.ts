@@ -1,10 +1,8 @@
 import { promises as fs } from "fs";
-import path from "path";
 
 import {
-  assertCsvFileWithinLimit,
-  getScopedCsvDirectory,
-  resolveCsvFilename,
+  getScopedCsvStoragePath,
+  readScopedCsvFile,
   type CsvOwnerScope,
 } from "./csvStorage";
 
@@ -14,32 +12,24 @@ export const resolveCsvPath = async (
   filename: string,
   scope: CsvOwnerScope,
 ): Promise<string> => {
-  const csvDirectory = getScopedCsvDirectory(scope);
-  await fs.mkdir(csvDirectory, { recursive: true });
-
-  const safeFilename = resolveCsvFilename(filename);
-  const resolved = path.resolve(csvDirectory, safeFilename);
-
-  const relative = path.relative(csvDirectory, resolved);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error("Invalid CSV filename.");
-  }
-
-  try {
-    const stats = await fs.stat(resolved);
-    assertCsvFileWithinLimit(stats.size);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`CSV file not found: ${filename}`);
-    }
-    throw error;
-  }
-
-  return resolved;
+  await readScopedCsvFile(filename, scope);
+  return getScopedCsvStoragePath(filename, scope);
 };
 
 export const readCsvRows = async (filepath: string): Promise<CsvRow[]> => {
   const contents = await fs.readFile(filepath, "utf8");
+  return parseCsvRows(contents);
+};
+
+export const readCsvRowsByFilename = async (
+  filename: string,
+  scope: CsvOwnerScope,
+): Promise<CsvRow[]> => {
+  const file = await readScopedCsvFile(filename, scope);
+  return parseCsvRows(file.contents);
+};
+
+const parseCsvRows = (contents: string): CsvRow[] => {
   const lines = contents.split(/\r?\n/).filter((line) => line.trim().length > 0);
   if (lines.length === 0) {
     return [];

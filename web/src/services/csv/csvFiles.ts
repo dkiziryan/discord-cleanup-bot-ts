@@ -7,3 +7,6 @@ export const fetchCsvFiles = async (): Promise<CsvFileMetadata[]> => {
   });
   return payload.files;
 };
+
+export const buildCsvDownloadUrl = (filename: string): string =>
+  `/api/csv-files/${encodeURIComponent(filename)}/download`;

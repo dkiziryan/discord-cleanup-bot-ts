@@ -1,5 +1,6 @@
 import styles from "./ZeroScanResults.module.css";
 import type { ResultsPageProps } from "../../models/types";
+import { CsvDownloadButton } from "../shared/CsvDownloadButton";
 import { ResultTile } from "../shared/ResultTile";
 
 export const ZeroScanResults = ({
@@ -24,6 +25,7 @@ export const ZeroScanResults = ({
           </p>
         </div>
         <div className={styles.actions}>
+          <CsvDownloadButton filename={data.csvPath} />
           <button type="button" className="secondary-button" onClick={onRunAnotherScan}>
             Run another scan
           </button>
