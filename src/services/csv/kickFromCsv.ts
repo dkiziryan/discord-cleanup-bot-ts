@@ -1,14 +1,12 @@
-import { promises as fs } from "fs";
-import path from "path";
 import type { Client, Guild, GuildMember } from "discord.js";
 import { PermissionFlagsBits } from "discord.js";
 import { KickFromCsvRequest, KickFromCsvFileResult } from "../../models/types";
 import { formatDiscordName } from "../../utils/discordMemberName";
 import { ScanCancelledError } from "../errors";
-import { readCsvRows, readCsvRowsByFilename } from "./csvInput";
+import { loadIgnoredUserIds } from "../ignore/ignoredUsers";
+import { readCsvRowsByFilename } from "./csvInput";
 import type { CsvOwnerScope } from "./csvStorage";
 
-const IGNORE_DIRECTORY = path.resolve(process.cwd(), "ignore");
 const KICK_DELAY_MS = 1000;
 
 export const kickMembersFromCsv = async (
@@ -46,7 +44,7 @@ export const kickMembersFromCsv = async (
     );
   }
 
-  const ignoredUserIds = await loadIgnoredUserIds();
+  const ignoredUserIds = await loadIgnoredUserIds(guildId);
 
   const uniqFilenames = Array.from(new Set(filenames));
   const results: KickFromCsvFileResult[] = [];
@@ -163,37 +161,6 @@ export const kickMembersFromCsv = async (
   }
 
   return results;
-};
-
-export const loadIgnoredUserIds = async (): Promise<Set<string>> => {
-  const ignored = new Set<string>();
-  try {
-    await fs.access(IGNORE_DIRECTORY);
-  } catch {
-    return ignored;
-  }
-
-  const entries = await fs.readdir(IGNORE_DIRECTORY, { withFileTypes: true });
-  const csvFiles = entries.filter(
-    (entry) => entry.isFile() && entry.name.endsWith(".csv"),
-  );
-
-  for (const entry of csvFiles) {
-    const filepath = path.join(IGNORE_DIRECTORY, entry.name);
-    try {
-      const rows = await readCsvRows(filepath);
-      for (const row of rows) {
-        const userId = row["User ID"]?.trim();
-        if (userId) {
-          ignored.add(userId);
-        }
-      }
-    } catch {
-      // Skip unreadable ignore files.
-    }
-  }
-
-  return ignored;
 };
 
 const normalizeUsername = (value: string): string => {

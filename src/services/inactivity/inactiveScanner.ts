@@ -18,7 +18,7 @@ import {
 } from "../../models/types";
 import { formatDiscordName } from "../../utils/discordMemberName";
 import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";
-import { loadIgnoredUserIds } from "../csv/kickFromCsv";
+import { loadIgnoredUserIds } from "../ignore/ignoredUsers";
 import { writeUserCsv } from "../csv/userCsv";
 import { ScanCancelledError } from "../errors";
 
@@ -37,6 +37,7 @@ export const scanInactiveMembers = async (
     days,
     excludedCategories = [],
     countReactionsAsActivity = true,
+    ignoredUserIds: providedIgnoredUserIds,
     progressCallbacks,
     isCancelled,
   } = options;
@@ -56,7 +57,8 @@ export const scanInactiveMembers = async (
   await guild.channels.fetch();
   throwIfCancelled();
 
-  const ignoredUserIds = await loadIgnoredUserIds();
+  const ignoredUserIds =
+    providedIgnoredUserIds ?? (await loadIgnoredUserIds(guildId));
   const members = guild.members.cache.filter(
     (member) => !member.user.bot && !ignoredUserIds.has(member.id),
   );

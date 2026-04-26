@@ -7,6 +7,7 @@ import { KickFromCsvPanel } from "../kick/KickFromCsvPanel";
 import { CleanupRolesPanel } from "../roles/CleanupRolesPanel";
 import { ZeroMessageScanner } from "../zeroMessages/ZeroMessageScanner";
 import { ActivityHistoryPanel } from "../history/ActivityHistoryPanel";
+import { ServerSettingsPanel } from "../settings/ServerSettingsPanel";
 import type { AuthUser } from "../../services/auth/auth";
 
 export type PanelKey =
@@ -15,6 +16,7 @@ export type PanelKey =
   | "kick"
   | "roles"
   | "archive"
+  | "settings"
   | "activity";
 
 export type PanelRequest = {
@@ -81,6 +83,12 @@ export const Dashboard = ({
         description:
           "Find channels without recent activity and move them into an archive category.",
         component: <ArchiveChannelsPanel />,
+      },
+      settings: {
+        title: "Server settings",
+        description:
+          "Manage per-server safety settings, including users ignored by moderation workflows.",
+        component: <ServerSettingsPanel />,
       },
       activity: {
         title: "Activity history",

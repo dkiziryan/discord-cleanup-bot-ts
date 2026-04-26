@@ -29,7 +29,7 @@ export const readCsvRowsByFilename = async (
   return parseCsvRows(file.contents);
 };
 
-const parseCsvRows = (contents: string): CsvRow[] => {
+export const parseCsvRows = (contents: string): CsvRow[] => {
   const lines = contents.split(/\r?\n/).filter((line) => line.trim().length > 0);
   if (lines.length === 0) {
     return [];

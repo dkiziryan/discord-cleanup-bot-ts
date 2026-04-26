@@ -67,6 +67,16 @@ model GuildSettings {
   updatedAt                  DateTime @updatedAt
 }
 
+model GuildIgnoredUser {
+  id            String   @id @default(cuid())
+  discordGuildId String
+  discordUserId  String
+  createdAt      DateTime @default(now())
+
+  @@unique([discordGuildId, discordUserId])
+  @@index([discordGuildId])
+}
+
 model Job {
   id              String      @id @default(cuid())
   type            JobType

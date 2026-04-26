@@ -82,6 +82,24 @@ export type JobHistoryResponse = {
   jobs: JobHistoryItem[];
 };
 
+export type IgnoredUser = {
+  id: string;
+  discordUserId: string;
+  createdAt: string;
+};
+
+export type IgnoredUsersResponse = {
+  users: IgnoredUser[];
+  count: number;
+};
+
+export type ImportIgnoredUsersResponse = {
+  message: string;
+  addedCount: number;
+  skippedCount: number;
+  totalCount: number;
+};
+
 export type KickFromCsvFileResult = {
   filename: string;
   dryRun: boolean;

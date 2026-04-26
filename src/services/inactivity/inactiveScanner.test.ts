@@ -163,6 +163,7 @@ test("scanInactiveMembers reports total eligible members checked, not remaining 
     guildId: "123",
     discordUserId: "456",
     days: 30,
+    ignoredUserIds: new Set(),
   });
 
   assert.equal(result.totalMembersChecked, 2);
@@ -222,6 +223,7 @@ test("scanInactiveMembers can count reactions as activity", async () => {
     discordUserId: "456",
     days: 30,
     countReactionsAsActivity: true,
+    ignoredUserIds: new Set(),
   });
 
   assert.equal(result.inactiveMembers.length, 1);

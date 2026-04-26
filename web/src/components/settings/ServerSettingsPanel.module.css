@@ -1,0 +1,158 @@
+.panel {
+  background: var(--discord-bg-raised);
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+
+.panel h2,
+.panel h3,
+.panel p {
+  margin: 0;
+}
+
+.panel header p,
+.empty {
+  color: var(--discord-text-subtle);
+}
+
+.ignoreSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sectionHeader {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  color: var(--discord-text-subtle);
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.addForm {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(14rem, 1fr) auto;
+}
+
+.addForm label {
+  color: var(--discord-text);
+  display: flex;
+  flex-direction: column;
+  font-weight: 800;
+  gap: 0.35rem;
+}
+
+.addForm input {
+  background: var(--discord-bg-deep);
+  border: 1px solid var(--discord-border-strong);
+  border-radius: var(--discord-radius-md);
+  color: inherit;
+  padding: 0.65rem 0.75rem;
+}
+
+.importRow {
+  align-items: flex-start;
+  background: var(--discord-bg-deep);
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.importRowActive {
+  border-color: var(--discord-blurple);
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
+}
+
+.importRow strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.importRow p {
+  color: var(--discord-text-subtle);
+}
+
+.importRow code,
+.csvExample {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.csvExample {
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-sm);
+  color: var(--discord-text-muted);
+  margin: 0.65rem 0 0;
+  overflow-x: auto;
+  padding: 0.65rem;
+}
+
+.fileInput {
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.dropHint {
+  color: var(--discord-text-subtle);
+  font-size: 0.85rem;
+}
+
+.userList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.userList li {
+  align-items: center;
+  background: var(--discord-bg-deep);
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-md);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(12rem, 1fr) auto auto;
+  padding: 0.75rem;
+}
+
+.userList code {
+  color: var(--discord-text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.userList span {
+  color: var(--discord-text-subtle);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 760px) {
+  .sectionHeader,
+  .addForm,
+  .userList li {
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+}

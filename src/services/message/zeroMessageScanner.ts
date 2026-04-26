@@ -4,7 +4,7 @@ import { Client, DiscordAPIError, GuildMember } from "discord.js";
 
 import { ScanCancelledError } from "../errors";
 
-import { loadIgnoredUserIds } from "../csv/kickFromCsv";
+import { loadIgnoredUserIds } from "../ignore/ignoredUsers";
 import { writeUserCsv } from "../csv/userCsv";
 import { formatDiscordName } from "../../utils/discordMemberName";
 import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";
@@ -39,6 +39,7 @@ export const scanZeroMessageUsers = async (
     targetChannelNames,
     dryRun = false,
     countReactionsAsActivity = false,
+    ignoredUserIds: providedIgnoredUserIds,
     progressCallbacks,
     isCancelled,
   } = options;
@@ -79,7 +80,8 @@ export const scanZeroMessageUsers = async (
   await guild.channels.fetch();
   throwIfCancelled();
 
-  const ignoredUserIds = await loadIgnoredUserIds();
+  const ignoredUserIds =
+    providedIgnoredUserIds ?? (await loadIgnoredUserIds(guildId));
   const members = guild.members.cache.filter((member) => !member.user.bot);
   const remainingIds = new Set(
     Array.from(members.keys()).filter(
