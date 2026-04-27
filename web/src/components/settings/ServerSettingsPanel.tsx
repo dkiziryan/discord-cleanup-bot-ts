@@ -11,9 +11,24 @@ import {
   removeIgnoredUser,
 } from "../../services/settings/ignoredUsers";
 
+const DISCORD_USER_ID_PATTERN = /^\d{5,25}$/;
+
+const hasImportableUserId = (contents: string): boolean => {
+  const lines = contents.split(/\r?\n/);
+  for (const line of lines.slice(1)) {
+    const [candidate] = line.split(",");
+    if (DISCORD_USER_ID_PATTERN.test(candidate.trim())) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 export const ServerSettingsPanel = () => {
   const [ignoredUsers, setIgnoredUsers] = useState<IgnoredUser[]>([]);
   const [discordUserId, setDiscordUserId] = useState("");
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -48,8 +63,9 @@ export const ServerSettingsPanel = () => {
     setStatusMessage(null);
     setErrorMessage(null);
     try {
-      await addIgnoredUser(discordUserId);
+      await addIgnoredUser(discordUserId, username);
       setDiscordUserId("");
+      setUsername("");
       setStatusMessage("Ignored user added.");
       await loadIgnoredUsers();
     } catch (error) {
@@ -144,7 +160,9 @@ export const ServerSettingsPanel = () => {
       <header>
         <div>
           <h2>Server settings</h2>
-          <p>Settings here apply only to the currently selected Discord server.</p>
+          <p>
+            Settings here apply only to the currently selected Discord server.
+          </p>
         </div>
       </header>
 
@@ -169,6 +187,15 @@ export const ServerSettingsPanel = () => {
               disabled={saving}
             />
           </label>
+          <label>
+            Username
+            <input
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="optional for now"
+              disabled={saving}
+            />
+          </label>
           <button type="submit" className="primary-button" disabled={saving}>
             {saving ? "Saving..." : "Add user"}
           </button>
@@ -183,10 +210,13 @@ export const ServerSettingsPanel = () => {
           <div>
             <strong>Import ignored users CSV</strong>
             <p>
-              Expected format: first column header <code>User ID</code>, with one Discord user ID per row.
-              A second <code>Username</code> column is allowed and ignored.
+              Expected format: first column header <code>User ID</code>, with
+              one Discord user ID per row. A second <code>Username</code> column
+              is allowed and ignored.
             </p>
-            <pre className={styles.csvExample}>User ID,Username{"\n"}702612734893883434,example_user</pre>
+            <pre className={styles.csvExample}>
+              User ID,Username{"\n"}702612734893883434,example_user
+            </pre>
           </div>
           <input
             ref={fileInputRef}
@@ -220,8 +250,13 @@ export const ServerSettingsPanel = () => {
           <ul className={styles.userList}>
             {ignoredUsers.map((user) => (
               <li key={user.id}>
-                <code>{user.discordUserId}</code>
-                <span>{new Date(user.createdAt).toLocaleDateString()}</span>
+                <span className={styles.userPrimary}>
+                  {user.username ? <strong>{user.username}</strong> : null}
+                  <code>{user.discordUserId}</code>
+                </span>
+                <span className={styles.addedDate}>
+                  {new Date(user.createdAt).toLocaleDateString()}
+                </span>
                 <button
                   type="button"
                   className="secondary-button secondary-button--danger"
@@ -237,18 +272,4 @@ export const ServerSettingsPanel = () => {
       </section>
     </section>
   );
-};
-
-const DISCORD_USER_ID_PATTERN = /^\d{5,25}$/;
-
-const hasImportableUserId = (contents: string): boolean => {
-  const lines = contents.split(/\r?\n/);
-  for (const line of lines.slice(1)) {
-    const [candidate] = line.split(",");
-    if (DISCORD_USER_ID_PATTERN.test(candidate.trim())) {
-      return true;
-    }
-  }
-
-  return false;
 };

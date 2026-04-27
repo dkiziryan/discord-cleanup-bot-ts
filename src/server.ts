@@ -64,6 +64,10 @@ import {
   removeIgnoredUser,
 } from "./services/ignoredUsers/ignoredUsers";
 import {
+  getLocalDevIgnoredUserSource,
+  setLocalDevIgnoredUserSource,
+} from "./services/ignoredUsers/ignoredUserSource";
+import {
   getSelectedGuildId,
   requireAuthenticatedSession,
   requireAuthorizedSession,
@@ -595,6 +599,17 @@ export const startHttpServer = (
     res.json({ jobs });
   });
 
+  app.get("/api/local-dev-settings", (_req, res) => {
+    res.json(getLocalDevIgnoredUserSource());
+  });
+
+  app.post("/api/local-dev-settings", (req, res) => {
+    const settings = setLocalDevIgnoredUserSource(
+      Boolean(req.body?.useProductionData),
+    );
+    res.json(settings);
+  });
+
   app.get("/api/ignored-users", async (req, res) => {
     const activeGuildId = requireSelectedGuildId(req, res);
     if (!activeGuildId) {
@@ -624,7 +639,9 @@ export const startHttpServer = (
         typeof req.body?.discordUserId === "string"
           ? req.body.discordUserId
           : "";
-      const user = await addIgnoredUser(activeGuildId, discordUserId);
+      const username =
+        typeof req.body?.username === "string" ? req.body.username : null;
+      const user = await addIgnoredUser(activeGuildId, discordUserId, username);
       res.status(201).json({ user: mapIgnoredUserRecord(user) });
     } catch (error) {
       res.status(400).json({ message: (error as Error).message });

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  collectImportIgnoredUsers,
   collectImportUserIds,
   normalizeDiscordUserId,
 } from "./ignoredUsers";
@@ -40,4 +41,22 @@ test("collectImportUserIds accepts the current ignore-users CSV shape", () => {
   });
 
   assert.deepEqual(ids, ["702612734893883434", "1097864941719011358"]);
+});
+
+test("collectImportIgnoredUsers preserves optional usernames", () => {
+  const users = collectImportIgnoredUsers({
+    csvText:
+      "User ID,Username\n702612734893883434,kiya (kiya_self_edge)\n1097864941719011358, powerful_piglet_65232 (bsr)",
+  });
+
+  assert.deepEqual(users, [
+    {
+      discordUserId: "702612734893883434",
+      username: "kiya (kiya_self_edge)",
+    },
+    {
+      discordUserId: "1097864941719011358",
+      username: "powerful_piglet_65232 (bsr)",
+    },
+  ]);
 });

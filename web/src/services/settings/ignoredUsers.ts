@@ -12,10 +12,11 @@ export const fetchIgnoredUsers = async (): Promise<IgnoredUsersResponse> =>
 
 export const addIgnoredUser = async (
   discordUserId: string,
+  username?: string | null,
 ): Promise<IgnoredUser> => {
   const payload = await apiJson<{ user: IgnoredUser }>("/api/ignored-users", {
     errorMessage: "Failed to add ignored user.",
-    json: { discordUserId },
+    json: { discordUserId, username },
     method: "POST",
   });
 

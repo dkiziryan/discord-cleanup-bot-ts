@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 
 import styles from "./UserBadge.module.css";
 import type { AuthUser } from "../../services/auth/auth";
+import type { LocalDevSettings } from "../../models/types";
+import {
+  fetchLocalDevSettings,
+  updateLocalDevSettings,
+} from "../../services/settings/localDevSettings";
 
 export const UserBadge = ({
   user,
@@ -13,7 +18,31 @@ export const UserBadge = ({
   onLogout: () => void;
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [localDevSettings, setLocalDevSettings] =
+    useState<LocalDevSettings | null>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLocalDevSettings = async () => {
+      try {
+        const settings = await fetchLocalDevSettings();
+        if (!cancelled) {
+          setLocalDevSettings(settings);
+        }
+      } catch {
+        if (!cancelled) {
+          setLocalDevSettings(null);
+        }
+      }
+    };
+
+    void loadLocalDevSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -49,6 +78,11 @@ export const UserBadge = ({
   const openActivityHistory = () => {
     setMenuOpen(false);
     onOpenActivityHistory();
+  };
+  const handleProductionDataToggle = async (enabled: boolean) => {
+    const settings = await updateLocalDevSettings(enabled);
+    setLocalDevSettings(settings);
+    window.location.reload();
   };
   const initials = buildInitials(user.username);
 
@@ -89,6 +123,18 @@ export const UserBadge = ({
           <button type="button" onClick={openActivityHistory}>
             Activity history
           </button>
+          {localDevSettings?.available && (
+            <label className={styles.menuToggle}>
+              <input
+                type="checkbox"
+                checked={localDevSettings.useProductionData}
+                onChange={(event) =>
+                  void handleProductionDataToggle(event.target.checked)
+                }
+              />
+              <span>Use production data</span>
+            </label>
+          )}
           <button type="button" onClick={onLogout}>
             Logout
           </button>

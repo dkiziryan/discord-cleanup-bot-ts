@@ -137,8 +137,25 @@
   text-align: left;
 }
 
-.menu button:hover {
+.menu button:hover,
+.menuToggle:hover {
   background: var(--discord-bg-deep);
+}
+
+.menuToggle {
+  align-items: center;
+  color: var(--discord-text);
+  cursor: pointer;
+  display: flex;
+  font-weight: 800;
+  gap: 0.55rem;
+  padding: 0.8rem 1.25rem;
+}
+
+.menuToggle input {
+  accent-color: var(--discord-blurple);
+  height: 1rem;
+  width: 1rem;
 }
 
 @media (max-width: 760px) {

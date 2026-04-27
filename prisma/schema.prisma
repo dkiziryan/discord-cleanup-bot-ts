@@ -71,6 +71,7 @@ model GuildIgnoredUser {
   id            String   @id @default(cuid())
   discordGuildId String
   discordUserId  String
+  username       String?
   createdAt      DateTime @default(now())
 
   @@unique([discordGuildId, discordUserId])

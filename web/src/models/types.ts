@@ -85,6 +85,7 @@ export type JobHistoryResponse = {
 export type IgnoredUser = {
   id: string;
   discordUserId: string;
+  username: string | null;
   createdAt: string;
 };
 
@@ -98,6 +99,11 @@ export type ImportIgnoredUsersResponse = {
   addedCount: number;
   skippedCount: number;
   totalCount: number;
+};
+
+export type LocalDevSettings = {
+  available: boolean;
+  useProductionData: boolean;
 };
 
 export type KickFromCsvFileResult = {

@@ -196,6 +196,7 @@ export type JobHistoryResponse = {
 export type IgnoredUser = {
   id: string;
   discordUserId: string;
+  username: string | null;
   createdAt: string;
 };
 
