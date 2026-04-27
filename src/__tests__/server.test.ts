@@ -6,6 +6,10 @@ import {
   canUseConfiguredChannelNames,
 } from "../config/targetChannels";
 import {
+  applyConfiguredInactiveCategoryScope,
+  canUseConfiguredInactiveCategories,
+} from "../config/inactiveCategories";
+import {
   getOriginFromUrl,
   isAllowedBrowserOrigin,
 } from "../utils/runtimeChecks";
@@ -70,6 +74,64 @@ test("configured target channels fall back to DISCORD_GUILD_ID", () => {
       delete process.env.TARGET_CHANNELS_GUILD_ID;
     } else {
       process.env.TARGET_CHANNELS_GUILD_ID = originalTargetGuildId;
+    }
+
+    if (originalDiscordGuildId === undefined) {
+      delete process.env.DISCORD_GUILD_ID;
+    } else {
+      process.env.DISCORD_GUILD_ID = originalDiscordGuildId;
+    }
+  }
+});
+
+test("configured inactive categories are scoped to the configured guild", () => {
+  const originalInactiveGuildId = process.env.INACTIVE_CATEGORIES_GUILD_ID;
+  const originalDiscordGuildId = process.env.DISCORD_GUILD_ID;
+
+  process.env.INACTIVE_CATEGORIES_GUILD_ID = "guild-carol";
+  process.env.DISCORD_GUILD_ID = "guild-fallback";
+
+  try {
+    assert.equal(canUseConfiguredInactiveCategories("guild-carol"), true);
+    assert.equal(canUseConfiguredInactiveCategories("guild-boris"), false);
+    assert.deepEqual(
+      applyConfiguredInactiveCategoryScope("guild-carol", ["Private"]),
+      ["Private"],
+    );
+    assert.deepEqual(
+      applyConfiguredInactiveCategoryScope("guild-boris", ["Private"]),
+      [],
+    );
+  } finally {
+    if (originalInactiveGuildId === undefined) {
+      delete process.env.INACTIVE_CATEGORIES_GUILD_ID;
+    } else {
+      process.env.INACTIVE_CATEGORIES_GUILD_ID = originalInactiveGuildId;
+    }
+
+    if (originalDiscordGuildId === undefined) {
+      delete process.env.DISCORD_GUILD_ID;
+    } else {
+      process.env.DISCORD_GUILD_ID = originalDiscordGuildId;
+    }
+  }
+});
+
+test("configured inactive categories fall back to DISCORD_GUILD_ID", () => {
+  const originalInactiveGuildId = process.env.INACTIVE_CATEGORIES_GUILD_ID;
+  const originalDiscordGuildId = process.env.DISCORD_GUILD_ID;
+
+  delete process.env.INACTIVE_CATEGORIES_GUILD_ID;
+  process.env.DISCORD_GUILD_ID = "guild-carol";
+
+  try {
+    assert.equal(canUseConfiguredInactiveCategories("guild-carol"), true);
+    assert.equal(canUseConfiguredInactiveCategories("guild-coursehero"), false);
+  } finally {
+    if (originalInactiveGuildId === undefined) {
+      delete process.env.INACTIVE_CATEGORIES_GUILD_ID;
+    } else {
+      process.env.INACTIVE_CATEGORIES_GUILD_ID = originalInactiveGuildId;
     }
 
     if (originalDiscordGuildId === undefined) {

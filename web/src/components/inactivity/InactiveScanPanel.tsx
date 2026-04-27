@@ -180,11 +180,12 @@ export const InactiveScanPanel = () => {
             rows={3}
             disabled={loading}
           />
-          <small>
-            Defaults always exclude {defaultCategories.length > 0
-              ? defaultCategories.map((category) => `“${category}”`).join(", ")
-              : "no categories"}
-          </small>
+          {defaultCategories.length > 0 && (
+            <small>
+              Defaults always exclude{" "}
+              {defaultCategories.map((category) => `“${category}”`).join(", ")}
+            </small>
+          )}
         </label>
         <label className={styles.checkboxRow}>
           <input

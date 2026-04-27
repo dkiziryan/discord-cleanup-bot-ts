@@ -12,6 +12,31 @@ const INACTIVE_LOCAL_FILE_PATH = path.resolve(
   "inactiveCategories.local.json",
 );
 
+export const getConfiguredInactiveCategoriesGuildId = (): string | null => {
+  const configuredGuildId =
+    process.env.INACTIVE_CATEGORIES_GUILD_ID ?? process.env.DISCORD_GUILD_ID ?? "";
+  const trimmed = configuredGuildId.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+export const canUseConfiguredInactiveCategories = (guildId: string): boolean => {
+  const configuredGuildId = getConfiguredInactiveCategoriesGuildId();
+
+  return Boolean(configuredGuildId && guildId === configuredGuildId);
+};
+
+export const applyConfiguredInactiveCategoryScope = (
+  guildId: string,
+  categories: CategoryList,
+): CategoryList => {
+  if (!canUseConfiguredInactiveCategories(guildId)) {
+    return [];
+  }
+
+  return [...categories];
+};
+
 const loadCategoryFile = async (filePath: string): Promise<CategoryList | null> => {
   try {
     const raw = await fs.readFile(filePath, "utf8");
@@ -27,7 +52,13 @@ const loadCategoryFile = async (filePath: string): Promise<CategoryList | null> 
 
 let cachedCategories: CategoryList | null = null;
 
-export const readInactiveCategoryDefaults = async (): Promise<CategoryList> => {
+export const readInactiveCategoryDefaults = async (
+  guildId?: string,
+): Promise<CategoryList> => {
+  if (guildId && !canUseConfiguredInactiveCategories(guildId)) {
+    return [];
+  }
+
   if (cachedCategories) {
     return [...cachedCategories];
   }

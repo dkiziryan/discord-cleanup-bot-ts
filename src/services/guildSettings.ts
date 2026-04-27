@@ -1,5 +1,8 @@
 import { Prisma } from "@prisma/client";
-import { readInactiveCategoryDefaults } from "../config/inactiveCategories";
+import {
+  applyConfiguredInactiveCategoryScope,
+  readInactiveCategoryDefaults,
+} from "../config/inactiveCategories";
 import {
   applyConfiguredChannelScope,
   readConfiguredChannelNames,
@@ -19,7 +22,10 @@ const mapGuildSettings = (record: {
   defaultTargetChannels: Prisma.JsonValue;
 }): GuildSettingsRecord => ({
   discordGuildId: record.discordGuildId,
-  inactiveExcludedCategories: toStringArray(record.inactiveExcludedCategories),
+  inactiveExcludedCategories: applyConfiguredInactiveCategoryScope(
+    record.discordGuildId,
+    toStringArray(record.inactiveExcludedCategories),
+  ),
   defaultTargetChannels: applyConfiguredChannelScope(
     record.discordGuildId,
     toStringArray(record.defaultTargetChannels),
@@ -31,7 +37,7 @@ export const ensureGuildSettings = async (
 ): Promise<GuildSettingsRecord> => {
   const prisma = await getPrismaClient();
   const defaultTargetChannels = await readConfiguredChannelNames(guildId);
-  const inactiveExcludedCategories = await readInactiveCategoryDefaults();
+  const inactiveExcludedCategories = await readInactiveCategoryDefaults(guildId);
 
   const settings = await prisma.guildSettings.upsert({
     where: { discordGuildId: guildId },
