@@ -108,6 +108,7 @@ const initialInactiveStatus = (): InactiveScanStatus => ({
   finishedAt: null,
   lastMessage: null,
   errorMessage: null,
+  result: null,
 });
 
 const LISTEN_HOSTS = {
@@ -119,6 +120,8 @@ const JSON_BODY_LIMIT = "1mb";
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_RATE_LIMIT_MAX = 30;
 const WORKFLOW_RATE_LIMIT_MAX = 40;
+const INACTIVE_SCAN_RESTART_WAIT_MS = 30_000;
+const INACTIVE_SCAN_RESTART_POLL_MS = 250;
 const RATE_LIMITED_API_WORKFLOW_PATHS = new Set([
   "/cleanup-roles",
   "/inactive-channels",
@@ -292,6 +295,24 @@ export const startHttpServer = (
     partial: Partial<InactiveScanStatus>,
   ) => {
     Object.assign(getInactiveStatus(activeGuildId), partial);
+  };
+
+  const waitForInactiveScanToStop = async (
+    activeGuildId: string,
+  ): Promise<boolean> => {
+    const deadline = Date.now() + INACTIVE_SCAN_RESTART_WAIT_MS;
+
+    while (isInactiveProcessingByGuild.get(activeGuildId)) {
+      if (Date.now() >= deadline) {
+        return false;
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, INACTIVE_SCAN_RESTART_POLL_MS),
+      );
+    }
+
+    return true;
   };
 
   const requireSelectedGuildId = (
@@ -1136,13 +1157,6 @@ export const startHttpServer = (
       return;
     }
 
-    if (isInactiveProcessingByGuild.get(activeGuildId)) {
-      res
-        .status(409)
-        .json({ message: "An inactive scan is already in progress." });
-      return;
-    }
-
     const requestedDays =
       typeof req.body?.days === "number" && Number.isFinite(req.body.days)
         ? Math.max(1, req.body.days)
@@ -1154,6 +1168,31 @@ export const startHttpServer = (
     const discordUserId = requireAuthenticatedDiscordUserId(req, res);
     if (!discordUserId) {
       return;
+    }
+
+    if (isInactiveProcessingByGuild.get(activeGuildId)) {
+      const inactiveStatus = getInactiveStatus(activeGuildId);
+      if (inactiveStatus.inProgress) {
+        const inactiveCancellation =
+          inactiveCancellationByGuild.get(activeGuildId);
+        inactiveCancellation?.cancel();
+        updateInactiveStatus(activeGuildId, {
+          lastMessage: "Cancelling current inactive scan before starting a new one…",
+          errorMessage: null,
+        });
+
+        const stopped = await waitForInactiveScanToStop(activeGuildId);
+        if (!stopped) {
+          res.status(409).json({
+            message:
+              "The previous inactive scan is still cancelling. Try again shortly.",
+          });
+          return;
+        }
+      } else {
+        isInactiveProcessingByGuild.set(activeGuildId, false);
+        inactiveCancellationByGuild.delete(activeGuildId);
+      }
     }
 
     let requestCategories: string[] = [];
@@ -1203,117 +1242,136 @@ export const startHttpServer = (
       finishedAt: null,
       lastMessage: "Preparing inactive scan…",
       errorMessage: null,
+      result: null,
     });
 
     isInactiveProcessingByGuild.set(activeGuildId, true);
     const inactiveController = createScanCancellationController();
     inactiveCancellationByGuild.set(activeGuildId, inactiveController);
-    try {
-      const result = await scanInactiveMembers(client, {
-        guildId: activeGuildId,
-        discordUserId,
-        days: requestedDays,
-        excludedCategories,
-        countReactionsAsActivity,
-        isCancelled: inactiveController.isCancelled,
-        progressCallbacks: {
-          onChannelStart(channelName, index, total) {
-            updateInactiveStatus(activeGuildId, {
-              currentChannel: channelName,
-              currentIndex: index,
-              totalChannels: total,
-              processedChannels: Math.max(index - 1, 0),
-              lastMessage: `Scanning #${channelName}`,
-            });
-          },
-          onChannelComplete(_channelName, index, total) {
-            updateInactiveStatus(activeGuildId, {
-              processedChannels: Math.min(index, total),
-            });
-          },
-        },
-      });
 
-      updateInactiveStatus(activeGuildId, {
-        inProgress: false,
-        currentChannel: null,
-        currentIndex: 0,
-        processedChannels: result.processedChannels.length,
-        totalChannels:
-          result.processedChannels.length + result.skippedChannels.length,
-        totalMessages: result.totalMessagesScanned,
-        finishedAt: new Date().toISOString(),
-        lastMessage: `Inactive scan complete. Found ${result.inactiveMembers.length} users.`,
-        errorMessage: null,
-      });
+    res.status(202).json({ message: "Inactive scan started." });
 
-      const responseData = mapInactiveResultToResponse(result);
-      const message = `Inactive scan complete. Found ${result.inactiveMembers.length} inactive users.`;
-      await registerCsvArtifact({
-        csvPath: result.csvPath,
-        jobId,
-      });
-      await completeJob(jobId, {
-        resultJson: {
-          data: responseData,
+    void (async () => {
+      const markInactiveScanIdle = () => {
+        isInactiveProcessingByGuild.set(activeGuildId, false);
+        inactiveCancellationByGuild.delete(activeGuildId);
+      };
+
+      try {
+        const result = await scanInactiveMembers(client, {
+          guildId: activeGuildId,
+          discordUserId,
+          days: requestedDays,
+          excludedCategories,
+          countReactionsAsActivity,
+          isCancelled: inactiveController.isCancelled,
+          progressCallbacks: {
+            onChannelStart(channelName, index, total) {
+              updateInactiveStatus(activeGuildId, {
+                currentChannel: channelName,
+                currentIndex: index,
+                totalChannels: total,
+                processedChannels: Math.max(index - 1, 0),
+                lastMessage: `Scanning ${channelName}`,
+              });
+            },
+            onChannelComplete(_channelName, index, total) {
+              updateInactiveStatus(activeGuildId, {
+                processedChannels: Math.min(index, total),
+              });
+            },
+            onMessageProgress(totalMessages) {
+              updateInactiveStatus(activeGuildId, {
+                totalMessages,
+              });
+            },
+          },
+        });
+
+        const responseData = mapInactiveResultToResponse(result);
+        const message = `Inactive scan complete. Found ${result.inactiveMembers.length} inactive users.`;
+        const response = {
           message,
-        },
-      });
+          data: responseData,
+        };
 
-      res.json({
-        message,
-        data: responseData,
-      });
-    } catch (error) {
-      if (error instanceof ScanCancelledError) {
-        const inactiveStatus = getInactiveStatus(activeGuildId);
+        await registerCsvArtifact({
+          csvPath: result.csvPath,
+          jobId,
+        });
+        await completeJob(jobId, {
+          resultJson: {
+            data: responseData,
+            message,
+          },
+        });
+
+        markInactiveScanIdle();
         updateInactiveStatus(activeGuildId, {
           inProgress: false,
           currentChannel: null,
           currentIndex: 0,
-          processedChannels: inactiveStatus.processedChannels,
-          totalChannels: inactiveStatus.totalChannels,
-          totalMessages: inactiveStatus.totalMessages,
+          processedChannels: result.processedChannels.length,
+          totalChannels:
+            result.processedChannels.length + result.skippedChannels.length,
+          totalMessages: result.totalMessagesScanned,
           finishedAt: new Date().toISOString(),
-          lastMessage: "Inactive scan cancelled by user.",
+          lastMessage: `Inactive scan complete. Found ${result.inactiveMembers.length} users.`,
           errorMessage: null,
+          result: response,
         });
-        await failJob(jobId, {
-          errorMessage: error.message,
-          status: "cancelled",
-        }).catch((jobError) => {
-          console.error(
-            `Failed to persist cancelled inactive scan job ${jobId}: ${(jobError as Error).message}`,
-          );
-        });
-        res.status(499).json({ message: error.message });
-      } else {
-        const errorMessage = (error as Error).message;
-        updateInactiveStatus(activeGuildId, {
-          inProgress: false,
-          currentChannel: null,
-          currentIndex: 0,
-          processedChannels: 0,
-          totalChannels: 0,
-          totalMessages: 0,
-          finishedAt: new Date().toISOString(),
-          lastMessage: "Inactive scan failed.",
-          errorMessage,
-        });
-        await failJob(jobId, {
-          errorMessage,
-          status: "failed",
-        }).catch((jobError) => {
-          console.error(
-            `Failed to persist failed inactive scan job ${jobId}: ${(jobError as Error).message}`,
-          );
-        });
-        res.status(500).json({ message: errorMessage });
+      } catch (error) {
+        if (error instanceof ScanCancelledError) {
+          const inactiveStatus = getInactiveStatus(activeGuildId);
+          await failJob(jobId, {
+            errorMessage: error.message,
+            status: "cancelled",
+          }).catch((jobError) => {
+            console.error(
+              `Failed to persist cancelled inactive scan job ${jobId}: ${(jobError as Error).message}`,
+            );
+          });
+          markInactiveScanIdle();
+          updateInactiveStatus(activeGuildId, {
+            inProgress: false,
+            currentChannel: null,
+            currentIndex: 0,
+            processedChannels: inactiveStatus.processedChannels,
+            totalChannels: inactiveStatus.totalChannels,
+            totalMessages: inactiveStatus.totalMessages,
+            finishedAt: new Date().toISOString(),
+            lastMessage: "Inactive scan cancelled by user.",
+            errorMessage: null,
+            result: null,
+          });
+        } else {
+          const errorMessage = (error as Error).message;
+          await failJob(jobId, {
+            errorMessage,
+            status: "failed",
+          }).catch((jobError) => {
+            console.error(
+              `Failed to persist failed inactive scan job ${jobId}: ${(jobError as Error).message}`,
+            );
+          });
+          markInactiveScanIdle();
+          updateInactiveStatus(activeGuildId, {
+            inProgress: false,
+            currentChannel: null,
+            currentIndex: 0,
+            processedChannels: 0,
+            totalChannels: 0,
+            totalMessages: 0,
+            finishedAt: new Date().toISOString(),
+            lastMessage: "Inactive scan failed.",
+            errorMessage,
+            result: null,
+          });
+        }
+      } finally {
+        markInactiveScanIdle();
       }
-    } finally {
-      isInactiveProcessingByGuild.set(activeGuildId, false);
-      inactiveCancellationByGuild.delete(activeGuildId);
-    }
+    })();
   });
 
   app.post("/api/kick-from-csv", async (req, res) => {

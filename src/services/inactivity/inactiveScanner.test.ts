@@ -17,7 +17,9 @@ type FakeMessage = {
     cache: Map<
       string,
       {
+        count?: number;
         users: {
+          cache: Map<string, { id: string; bot: boolean }>;
           fetch: () => Promise<Map<string, { id: string; bot: boolean }>>;
         };
       }
@@ -177,7 +179,9 @@ test("scanInactiveMembers can count reactions as activity", async () => {
   const cutoffRecentMessage = now - 5 * 24 * 60 * 60 * 1000;
 
   const reaction = {
+    count: 1,
     users: {
+      cache: new Map<string, { id: string; bot: boolean }>(),
       fetch: async () =>
         new Map([["member-reactive", { id: "member-reactive", bot: false }]]),
     },
@@ -217,6 +221,7 @@ test("scanInactiveMembers can count reactions as activity", async () => {
   });
 
   const client = createClient(guild);
+  const messageProgress: number[] = [];
 
   const result = await scanInactiveMembers(client as never, {
     guildId: "123",
@@ -224,9 +229,15 @@ test("scanInactiveMembers can count reactions as activity", async () => {
     days: 30,
     countReactionsAsActivity: true,
     ignoredUserIds: new Set(),
+    progressCallbacks: {
+      onMessageProgress(totalMessages) {
+        messageProgress.push(totalMessages);
+      },
+    },
   });
 
   assert.equal(result.inactiveMembers.length, 1);
   assert.equal(result.inactiveMembers[0]?.id, "member-inactive");
   assert.equal(result.lastActivityByMemberId.get("member-reactive"), "reaction");
+  assert.deepEqual(messageProgress, [1]);
 });

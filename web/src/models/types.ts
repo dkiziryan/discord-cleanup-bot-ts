@@ -149,6 +149,7 @@ export type InactiveScanStatus = {
   finishedAt: string | null;
   lastMessage: string | null;
   errorMessage: string | null;
+  result: InactiveScanResponse | null;
 };
 
 export type CleanupRolesRequest = {

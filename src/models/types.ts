@@ -4,6 +4,7 @@ export type ScanProgressCallbacks = {
   onChannelStart?(channelName: string, index: number, total: number): void;
   onChannelComplete?(channelName: string, index: number, total: number): void;
   onMemberProgress?(processedMembers: number, totalMembers: number): void;
+  onMessageProgress?(totalMessages: number): void;
 };
 
 export type ScanZeroMessagesOptions = {
@@ -161,6 +162,23 @@ export type ArchiveChannelsResult = {
   failures: string[];
 };
 
+export type InactiveScanResponse = {
+  message: string;
+  data: {
+    guildName: string;
+    csvPath: string;
+    cutoffIso: string;
+    inactiveCount: number;
+    totalMembersChecked: number;
+    totalMessagesScanned: number;
+    skippedChannels: string[];
+    processedChannels: string[];
+    previewNames: string[];
+    moreCount: number;
+    skippedPreview: string;
+  };
+};
+
 export type InactiveScanStatus = {
   inProgress: boolean;
   currentChannel: string | null;
@@ -172,6 +190,7 @@ export type InactiveScanStatus = {
   finishedAt: string | null;
   lastMessage: string | null;
   errorMessage: string | null;
+  result: InactiveScanResponse | null;
 };
 export type CsvFileListResponse = {
   files: CsvFileMetadata[];

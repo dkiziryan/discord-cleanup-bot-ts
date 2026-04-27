@@ -125,14 +125,18 @@ export const UserBadge = ({
           </button>
           {localDevSettings?.available && (
             <label className={styles.menuToggle}>
-              <input
-                type="checkbox"
-                checked={localDevSettings.useProductionData}
-                onChange={(event) =>
-                  void handleProductionDataToggle(event.target.checked)
-                }
-              />
               <span>Use production data</span>
+              <span className={styles.switchControl}>
+                <input
+                  type="checkbox"
+                  className={styles.switchInput}
+                  checked={localDevSettings.useProductionData}
+                  onChange={(event) =>
+                    void handleProductionDataToggle(event.target.checked)
+                  }
+                />
+                <span className={styles.switchTrack} aria-hidden="true" />
+              </span>
             </label>
           )}
           <button type="button" onClick={onLogout}>

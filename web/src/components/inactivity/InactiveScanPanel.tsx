@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import styles from "./InactiveScanPanel.module.css";
 import type { InactiveScanResponse, InactiveScanStatus } from "../../models/types";
@@ -21,6 +21,7 @@ export const InactiveScanPanel = () => {
   const [cancelling, setCancelling] = useState(false);
   const [scanStatus, setScanStatus] = useState<InactiveScanStatus | null>(null);
   const [defaultCategories, setDefaultCategories] = useState<string[]>([]);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,19 +45,41 @@ export const InactiveScanPanel = () => {
   useEffect(() => {
     let cancelled = false;
     let intervalId: number | undefined;
+    let timerId: number | undefined;
+    const startedAt = Date.now();
 
     const poll = async () => {
       const data = await fetchInactiveStatus();
       if (!cancelled) {
         setScanStatus(data);
+        if (data?.result && !data.inProgress) {
+          setResult(data.result);
+          setStatusMessage(data.result.message);
+          setErrorMessage(null);
+          setLoading(false);
+        } else if (data?.errorMessage && !data.inProgress) {
+          setResult(null);
+          setErrorMessage(data.errorMessage);
+          setStatusMessage(null);
+          setLoading(false);
+        } else if (data?.lastMessage && !data.inProgress) {
+          setStatusMessage(data.lastMessage);
+          setErrorMessage(null);
+          setLoading(false);
+        }
       }
     };
 
     if (loading) {
+      setElapsedSeconds(0);
       void poll();
       intervalId = window.setInterval(poll, 1500);
+      timerId = window.setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+      }, 1000);
     } else {
       setScanStatus(null);
+      setCancelling(false);
     }
 
     return () => {
@@ -64,8 +87,17 @@ export const InactiveScanPanel = () => {
       if (intervalId !== undefined) {
         window.clearInterval(intervalId);
       }
+      if (timerId !== undefined) {
+        window.clearInterval(timerId);
+      }
     };
   }, [loading]);
+
+  const formattedElapsedTime = useMemo(() => {
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  }, [elapsedSeconds]);
 
   const handleScan = async () => {
     if (loading) {
@@ -83,13 +115,11 @@ export const InactiveScanPanel = () => {
       .filter((value) => value.length > 0);
 
     try {
-      const response = await requestInactiveScan({
+      await requestInactiveScan({
         days,
         excludedCategories: categories.length > 0 ? categories : undefined,
         countReactionsAsActivity,
       });
-      setResult(response);
-      setStatusMessage(response.message);
     } catch (error) {
       const message = (error as Error).message;
       if (message.toLowerCase().includes("cancel")) {
@@ -98,7 +128,6 @@ export const InactiveScanPanel = () => {
       } else {
         setErrorMessage(message);
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -115,7 +144,6 @@ export const InactiveScanPanel = () => {
       setErrorMessage(null);
     } catch (error) {
       setErrorMessage((error as Error).message);
-    } finally {
       setCancelling(false);
     }
   };
@@ -185,6 +213,9 @@ export const InactiveScanPanel = () => {
 
         {loading && (
           <div className={styles.scanProgress}>
+            <p className={styles.elapsedTime}>
+              Elapsed scan time: {formattedElapsedTime}
+            </p>
             <InactiveProgressIndicator status={scanStatus} />
           </div>
         )}

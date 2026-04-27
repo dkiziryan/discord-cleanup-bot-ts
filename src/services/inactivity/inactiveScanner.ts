@@ -8,6 +8,7 @@ import {
   extractMembers,
   fetchGuild,
   resolveGuildMe,
+  resolveScanTargetLabel,
   resolveTargetChannels,
   scanChannelHistorySince,
 } from "./inactiveScannerHelpers";
@@ -112,6 +113,7 @@ export const scanInactiveMembers = async (
     guild,
     normalizedExcluded,
     threadCollection,
+    throwIfCancelled,
   );
 
   if (targetChannels.length === 0) {
@@ -138,7 +140,7 @@ export const scanInactiveMembers = async (
       }
 
       const channel = targetChannels[index];
-      const channelName = channel.name;
+      const channelName = resolveScanTargetLabel(channel);
 
       const canReadHistory = me
         ? channel.permissionsFor(me)?.has("ReadMessageHistory") &&
@@ -159,7 +161,7 @@ export const scanInactiveMembers = async (
       );
 
       try {
-        const stats = await scanChannelHistorySince(
+        await scanChannelHistorySince(
           channel,
           cutoff,
           remainingIds,
@@ -167,10 +169,17 @@ export const scanInactiveMembers = async (
             countReactionsAsActivity,
             lastActivityByMemberId,
             onCheckCancelled: throwIfCancelled,
+            onMessagesScanned(deltaMessages) {
+              totalMessagesScanned += deltaMessages;
+              progressCallbacks?.onMessageProgress?.(totalMessagesScanned);
+            },
           },
         );
-        totalMessagesScanned += stats.totalMessages;
       } catch (error) {
+        if (error instanceof ScanCancelledError) {
+          throw error;
+        }
+
         if (error instanceof DiscordAPIError) {
           if (error.code === 50013) {
             skippedChannels.push(`${channelName} (forbidden)`);

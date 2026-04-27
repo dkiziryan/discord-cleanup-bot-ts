@@ -32,6 +32,7 @@ export const resolveTargetChannels = async (
   guild: Guild,
   excludedCategories: Set<string>,
   activeThreads: Collection<string, AnyThreadChannel> | null,
+  onCheckCancelled?: () => void,
 ): Promise<GuildTextBasedChannel[]> => {
   const targets: GuildTextBasedChannel[] = [];
   const seen = new Set<string>();
@@ -68,6 +69,7 @@ export const resolveTargetChannels = async (
   };
 
   const addChildThreads = async (channel: unknown) => {
+    onCheckCancelled?.();
     const kind = (channel as { type?: ChannelType }).type;
     const threadManager = (channel as { threads?: unknown }).threads as {
       fetchActive?: () => Promise<{
@@ -87,42 +89,42 @@ export const resolveTargetChannels = async (
       return;
     }
 
-    try {
-      const active = await threadManager.fetchActive?.();
-      active?.threads?.forEach((thread) => considerChannel(thread));
-    } catch {
-      // ignore
-    }
-
-    try {
-      const publicArchived = await threadManager.fetchArchived?.({
-        type: "public",
-        limit: 100,
-      });
-      publicArchived?.threads?.forEach((thread) => considerChannel(thread));
-    } catch {
-      // ignore
-    }
-
-    try {
-      const privateArchived = await threadManager.fetchArchived?.({
-        type: "private",
-        limit: 100,
-      });
-      privateArchived?.threads?.forEach((thread) => considerChannel(thread));
-    } catch {
-      // ignore
-    }
+    // Archived threads are intentionally excluded from inactivity scans.
+    // They can be stale, slow to fetch, and confusing in progress output because
+    // they no longer appear as active server channels.
   };
 
   for (const channel of guild.channels.cache.values()) {
+    onCheckCancelled?.();
     considerChannel(channel);
     await addChildThreads(channel);
   }
 
+  onCheckCancelled?.();
   activeThreads?.forEach((thread) => considerChannel(thread));
 
   return targets;
+};
+
+export const resolveScanTargetLabel = (
+  channel: GuildTextBasedChannel | AnyThreadChannel,
+): string => {
+  const kind = (channel as { type?: ChannelType }).type;
+  const isThread =
+    kind === ChannelType.PublicThread ||
+    kind === ChannelType.PrivateThread ||
+    kind === ChannelType.AnnouncementThread;
+
+  if (!isThread) {
+    return `#${channel.name}`;
+  }
+
+  const parentName = channel.parent?.name;
+  if (parentName) {
+    return `thread ${parentName} / ${channel.name}`;
+  }
+
+  return `thread ${channel.name}`;
 };
 
 const resolveCategoryName = (
@@ -172,14 +174,39 @@ export const scanChannelHistorySince = async (
     countReactionsAsActivity?: boolean;
     lastActivityByMemberId?: Map<string, LastActivityType>;
     onCheckCancelled?: () => void;
+    onMessagesScanned?: (deltaMessages: number) => void;
   },
 ): Promise<{ totalMessages: number }> => {
   const onCheckCancelled = options?.onCheckCancelled;
   const countReactionsAsActivity = options?.countReactionsAsActivity ?? false;
   const lastActivityByMemberId = options?.lastActivityByMemberId;
+  const onMessagesScanned = options?.onMessagesScanned;
   let totalMessages = 0;
+  let unreportedMessages = 0;
   let lastMessageId: string | undefined;
   let reachedCutoff = false;
+
+  const reportScannedMessages = () => {
+    if (unreportedMessages === 0) {
+      return;
+    }
+
+    onMessagesScanned?.(unreportedMessages);
+    unreportedMessages = 0;
+  };
+
+  const markReactionUsersAsActive = (
+    users: Iterable<{ id: string; bot?: boolean | null }>,
+  ) => {
+    for (const user of users) {
+      if (user.bot || !remainingIds.has(user.id)) {
+        continue;
+      }
+
+      remainingIds.delete(user.id);
+      lastActivityByMemberId?.set(user.id, "reaction");
+    }
+  };
 
   while (true) {
     onCheckCancelled?.();
@@ -205,6 +232,7 @@ export const scanChannelHistorySince = async (
       }
 
       totalMessages += 1;
+      unreportedMessages += 1;
 
       if (!message.author.bot && remainingIds.has(message.author.id)) {
         remainingIds.delete(message.author.id);
@@ -213,21 +241,26 @@ export const scanChannelHistorySince = async (
 
       const reactions = message.reactions?.cache;
       if (countReactionsAsActivity && reactions && remainingIds.size > 0) {
+        reportScannedMessages();
         for (const reaction of reactions.values()) {
           onCheckCancelled?.();
+          markReactionUsersAsActive(reaction.users.cache.values());
+
+          if (remainingIds.size === 0) {
+            break;
+          }
+
+          const reactionCount = reaction.count ?? reaction.users.cache.size;
+          if (reaction.users.cache.size >= reactionCount) {
+            continue;
+          }
+
           const users = await reaction.users.fetch().catch(() => null);
           if (!users) {
             continue;
           }
 
-          for (const user of users.values()) {
-            if (user.bot || !remainingIds.has(user.id)) {
-              continue;
-            }
-
-            remainingIds.delete(user.id);
-            lastActivityByMemberId?.set(user.id, "reaction");
-          }
+          markReactionUsersAsActive(users.values());
 
           if (remainingIds.size === 0) {
             break;
@@ -239,6 +272,7 @@ export const scanChannelHistorySince = async (
         break;
       }
     }
+    reportScannedMessages();
 
     if (remainingIds.size === 0 || reachedCutoff) {
       break;
@@ -247,6 +281,8 @@ export const scanChannelHistorySince = async (
     const oldestMessage = orderedMessages[orderedMessages.length - 1];
     lastMessageId = oldestMessage.id;
   }
+
+  reportScannedMessages();
 
   return { totalMessages };
 };

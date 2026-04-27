@@ -2,6 +2,8 @@ import styles from "../shared/ProgressIndicator.module.css";
 import type { InactiveScanStatus } from "../../models/types";
 
 export const InactiveProgressIndicator = ({ status }: { status: InactiveScanStatus | null }) => {
+  const messagesInspected = status?.totalMessages ?? 0;
+
   if (!status || status.totalChannels === 0) {
     return (
       <>
@@ -9,6 +11,7 @@ export const InactiveProgressIndicator = ({ status }: { status: InactiveScanStat
         <div className={styles.bar}>
           <div className={`${styles.fill} ${styles.loop}`} />
         </div>
+        <p className={styles.note}>Messages inspected: {messagesInspected.toLocaleString()}</p>
       </>
     );
   }
@@ -20,6 +23,7 @@ export const InactiveProgressIndicator = ({ status }: { status: InactiveScanStat
         <div className={styles.bar}>
           <div className={`${styles.fill} ${styles.loop}`} />
         </div>
+        <p className={styles.note}>Messages inspected: {messagesInspected.toLocaleString()}</p>
       </>
     );
   }
@@ -38,7 +42,7 @@ export const InactiveProgressIndicator = ({ status }: { status: InactiveScanStat
       ? Math.min(Math.max(status.currentIndex, processed + 1), status.totalChannels)
       : 0;
 
-  const channelLabel = status.currentChannel ? `Scanning #${status.currentChannel}` : "Scanning inactive users…";
+  const channelLabel = status.currentChannel ? `Scanning ${status.currentChannel}` : "Scanning inactive users…";
   const stepLabel =
     status.totalChannels > 0
       ? `${currentStep} of ${status.totalChannels} channels`
@@ -53,7 +57,7 @@ export const InactiveProgressIndicator = ({ status }: { status: InactiveScanStat
       <div className={styles.bar}>
         <div className={styles.fill} style={{ width: `${percent}%` }} />
       </div>
-      <p className={styles.note}>Messages inspected: {status.totalMessages.toLocaleString()}</p>
+      <p className={styles.note}>Messages inspected: {messagesInspected.toLocaleString()}</p>
     </>
   );
 };
