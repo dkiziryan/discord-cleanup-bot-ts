@@ -120,8 +120,8 @@ const JSON_BODY_LIMIT = "1mb";
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_RATE_LIMIT_MAX = 30;
 const WORKFLOW_RATE_LIMIT_MAX = 40;
-const INACTIVE_SCAN_RESTART_WAIT_MS = 30_000;
-const INACTIVE_SCAN_RESTART_POLL_MS = 250;
+const SCAN_RESTART_WAIT_MS = 30_000;
+const SCAN_RESTART_POLL_MS = 250;
 const RATE_LIMITED_API_WORKFLOW_PATHS = new Set([
   "/cleanup-roles",
   "/inactive-channels",
@@ -131,6 +131,29 @@ const RATE_LIMITED_API_WORKFLOW_PATHS = new Set([
   "/inactive-scan",
   "/kick-from-csv",
 ]);
+
+export const waitForProcessingToStop = async (
+  isProcessing: Map<string, boolean>,
+  activeGuildId: string,
+  options: {
+    timeoutMs?: number;
+    pollMs?: number;
+  } = {},
+): Promise<boolean> => {
+  const timeoutMs = options.timeoutMs ?? SCAN_RESTART_WAIT_MS;
+  const pollMs = options.pollMs ?? SCAN_RESTART_POLL_MS;
+  const deadline = Date.now() + timeoutMs;
+
+  while (isProcessing.get(activeGuildId)) {
+    if (Date.now() >= deadline) {
+      return false;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  return true;
+};
 
 export const startHttpServer = (
   client: Client,
@@ -295,24 +318,6 @@ export const startHttpServer = (
     partial: Partial<InactiveScanStatus>,
   ) => {
     Object.assign(getInactiveStatus(activeGuildId), partial);
-  };
-
-  const waitForInactiveScanToStop = async (
-    activeGuildId: string,
-  ): Promise<boolean> => {
-    const deadline = Date.now() + INACTIVE_SCAN_RESTART_WAIT_MS;
-
-    while (isInactiveProcessingByGuild.get(activeGuildId)) {
-      if (Date.now() >= deadline) {
-        return false;
-      }
-
-      await new Promise((resolve) =>
-        setTimeout(resolve, INACTIVE_SCAN_RESTART_POLL_MS),
-      );
-    }
-
-    return true;
   };
 
   const requireSelectedGuildId = (
@@ -960,17 +965,38 @@ export const startHttpServer = (
       return;
     }
 
-    if (isProcessingByGuild.get(activeGuildId)) {
-      res.status(409).json({ message: "A scan is already in progress." });
-      return;
-    }
-
     const requestChannels = parseChannelNames(req.body?.channelNames);
     const dryRun = Boolean(req.body?.dryRun);
     const countReactionsAsActivity = Boolean(req.body?.countReactionsAsActivity);
     const discordUserId = requireAuthenticatedDiscordUserId(req, res);
     if (!discordUserId) {
       return;
+    }
+
+    if (isProcessingByGuild.get(activeGuildId)) {
+      const scanStatus = getScanStatus(activeGuildId);
+      if (scanStatus.inProgress) {
+        const activeCancellation = activeCancellationByGuild.get(activeGuildId);
+        activeCancellation?.cancel();
+        updateScanStatus(activeGuildId, {
+          lastMessage: "Cancelling current scan before starting a new one…",
+          errorMessage: null,
+        });
+
+        const stopped = await waitForProcessingToStop(
+          isProcessingByGuild,
+          activeGuildId,
+        );
+        if (!stopped) {
+          res.status(409).json({
+            message: "The previous scan is still cancelling. Try again shortly.",
+          });
+          return;
+        }
+      } else {
+        isProcessingByGuild.set(activeGuildId, false);
+        activeCancellationByGuild.delete(activeGuildId);
+      }
     }
 
     let targetChannelNames = requestChannels;
@@ -1181,7 +1207,10 @@ export const startHttpServer = (
           errorMessage: null,
         });
 
-        const stopped = await waitForInactiveScanToStop(activeGuildId);
+        const stopped = await waitForProcessingToStop(
+          isInactiveProcessingByGuild,
+          activeGuildId,
+        );
         if (!stopped) {
           res.status(409).json({
             message:

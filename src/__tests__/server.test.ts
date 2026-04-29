@@ -13,6 +13,7 @@ import {
   getOriginFromUrl,
   isAllowedBrowserOrigin,
 } from "../utils/runtimeChecks";
+import { waitForProcessingToStop } from "../server";
 
 test("parseChannelNames splits string input on commas and newlines", () => {
   const parsed = parseChannelNames("general,announcements\nmods\r\nsupport");
@@ -165,4 +166,32 @@ test("getOriginFromUrl returns origin for valid URLs only", () => {
   );
   assert.equal(getOriginFromUrl("not-a-url"), null);
   assert.equal(getOriginFromUrl(undefined), null);
+});
+
+test("waitForProcessingToStop resolves when processing clears", async () => {
+  const processingByGuild = new Map([["guild-carol", true]]);
+
+  setTimeout(() => {
+    processingByGuild.set("guild-carol", false);
+  }, 5);
+
+  assert.equal(
+    await waitForProcessingToStop(processingByGuild, "guild-carol", {
+      timeoutMs: 100,
+      pollMs: 1,
+    }),
+    true,
+  );
+});
+
+test("waitForProcessingToStop times out while processing remains active", async () => {
+  const processingByGuild = new Map([["guild-carol", true]]);
+
+  assert.equal(
+    await waitForProcessingToStop(processingByGuild, "guild-carol", {
+      timeoutMs: 5,
+      pollMs: 1,
+    }),
+    false,
+  );
 });
