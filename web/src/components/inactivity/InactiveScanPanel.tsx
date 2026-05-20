@@ -15,7 +15,7 @@ const FAST_SCAN_MAX_MESSAGES_PER_CHANNEL = 5_000;
 export const InactiveScanPanel = () => {
   const [days, setDays] = useState(180);
   const [excludedValue, setExcludedValue] = useState("");
-  const [countReactionsAsActivity, setCountReactionsAsActivity] = useState(true);
+  const [countReactionsAsActivity, setCountReactionsAsActivity] = useState(false);
   const [fastScan, setFastScan] = useState(true);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);

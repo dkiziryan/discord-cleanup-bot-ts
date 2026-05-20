@@ -13,7 +13,7 @@ import {
   getOriginFromUrl,
   isAllowedBrowserOrigin,
 } from "../utils/runtimeChecks";
-import { waitForProcessingToStop } from "../server";
+import { formatElapsedDuration, waitForProcessingToStop } from "../server";
 
 test("parseChannelNames splits string input on commas and newlines", () => {
   const parsed = parseChannelNames("general,announcements\nmods\r\nsupport");
@@ -194,4 +194,10 @@ test("waitForProcessingToStop times out while processing remains active", async 
     }),
     false,
   );
+});
+
+test("formatElapsedDuration formats seconds and minutes", () => {
+  assert.equal(formatElapsedDuration(1_000, 1_400), "0s");
+  assert.equal(formatElapsedDuration(1_000, 10_600), "10s");
+  assert.equal(formatElapsedDuration(1_000, 72_000), "1m 11s");
 });

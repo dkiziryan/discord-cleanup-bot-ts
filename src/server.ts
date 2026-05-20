@@ -172,6 +172,18 @@ const parseMaxMessagesPerChannel = (value: unknown): number | undefined => {
   return Math.min(parsed, MAX_FAST_SCAN_MESSAGES_PER_CHANNEL);
 };
 
+export const formatElapsedDuration = (startedAtMs: number, finishedAtMs: number): string => {
+  const elapsedSeconds = Math.max(0, Math.round((finishedAtMs - startedAtMs) / 1000));
+  const minutes = Math.floor(elapsedSeconds / 60);
+  const seconds = elapsedSeconds % 60;
+
+  if (minutes === 0) {
+    return `${seconds}s`;
+  }
+
+  return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+};
+
 export const startHttpServer = (
   client: Client,
   options: StartServerOptions,
@@ -1340,6 +1352,7 @@ export const startHttpServer = (
     res.status(202).json({ message: "Inactive scan started." });
 
     void (async () => {
+      const scanStartedAtMs = Date.now();
       const markInactiveScanIdle = () => {
         isInactiveProcessingByGuild.set(activeGuildId, false);
         inactiveCancellationByGuild.delete(activeGuildId);
@@ -1378,7 +1391,8 @@ export const startHttpServer = (
         });
 
         const responseData = mapInactiveResultToResponse(result);
-        const message = `Inactive scan complete. Found ${result.inactiveMembers.length} inactive users.`;
+        const elapsedDuration = formatElapsedDuration(scanStartedAtMs, Date.now());
+        const message = `Inactive scan complete in ${elapsedDuration}. Found ${result.inactiveMembers.length} inactive users.`;
         const response = {
           message,
           data: responseData,
@@ -1394,7 +1408,7 @@ export const startHttpServer = (
             result.processedChannels.length + result.skippedChannels.length,
           totalMessages: result.totalMessagesScanned,
           finishedAt: new Date().toISOString(),
-          lastMessage: `Inactive scan complete. Found ${result.inactiveMembers.length} users.`,
+          lastMessage: message,
           errorMessage: null,
           result: response,
         });

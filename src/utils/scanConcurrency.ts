@@ -1,4 +1,4 @@
-const DEFAULT_SCAN_CHANNEL_CONCURRENCY = 3;
+const DEFAULT_SCAN_CHANNEL_CONCURRENCY = 5;
 const MAX_SCAN_CHANNEL_CONCURRENCY = 5;
 
 export const resolveScanChannelConcurrency = (

@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { resolveScanChannelConcurrency } from "../../utils/scanConcurrency";
 import { scanChannelHistory } from "./zeroMessageScannerHelpers";
 
-test("resolveScanChannelConcurrency defaults to three channels", () => {
-  assert.equal(resolveScanChannelConcurrency(undefined), 3);
+test("resolveScanChannelConcurrency defaults to five channels", () => {
+  assert.equal(resolveScanChannelConcurrency(undefined), 5);
 });
 
 test("resolveScanChannelConcurrency allows five channels", () => {
@@ -17,7 +17,7 @@ test("resolveScanChannelConcurrency caps values above five", () => {
 });
 
 test("resolveScanChannelConcurrency ignores invalid values", () => {
-  assert.equal(resolveScanChannelConcurrency("abc"), 3);
+  assert.equal(resolveScanChannelConcurrency("abc"), 5);
 });
 
 test("scanChannelHistory uses cached reaction users without fetching when cache is complete", async () => {
