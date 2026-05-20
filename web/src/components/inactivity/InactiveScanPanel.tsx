@@ -211,6 +211,11 @@ export const InactiveScanPanel = () => {
           />
           <span>Fast scan (first 5,000 messages per channel)</span>
         </label>
+        {!fastScan && (
+          <small>
+            Full scan checks deeper channel history and may take much longer.
+          </small>
+        )}
         <div className={styles.actions}>
           <button type="button" onClick={handleScan} disabled={loading} className="primary-button">
             {loading ? "Scanning…" : "Scan inactive members"}

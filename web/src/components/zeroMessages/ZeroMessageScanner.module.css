@@ -13,6 +13,11 @@
   font-weight: 700;
 }
 
+.controlPanel small {
+  color: var(--discord-text-subtle);
+  font-weight: 400;
+}
+
 .controlPanel textarea {
   background: var(--discord-bg-deep);
   border: 1px solid var(--discord-border-strong);
