@@ -150,12 +150,10 @@ export const listScopedCsvFiles = async (
     csvFiles.map(async (entry) => {
       const filepath = path.join(csvDirectory, entry.name);
       const stats = await fs.stat(filepath);
-      const contents = await fs.readFile(filepath, "utf8");
       return {
         filename: entry.name,
         size: stats.size,
         modifiedAt: stats.mtime.toISOString(),
-        rowCount: countCsvRows(contents),
       };
     }),
   );
@@ -374,21 +372,12 @@ const listS3CsvFiles = async (
       return {
         filename,
         modifiedAt: readXmlValue(contents, "LastModified"),
-        rowCount: 0,
         size: Number(readXmlValue(contents, "Size")) || 0,
       };
     })
     .filter((file) => file.filename.endsWith(".csv"));
 
-  return Promise.all(
-    listedFiles.map(async (file) => {
-      const object = await getS3Object(`${prefix}${file.filename}`);
-      return {
-        ...file,
-        rowCount: countCsvRows(object.body),
-      };
-    }),
-  );
+  return listedFiles;
 };
 
 const signedS3Request = async (

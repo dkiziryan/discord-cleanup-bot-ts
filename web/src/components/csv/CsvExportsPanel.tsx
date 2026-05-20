@@ -175,11 +175,7 @@ export const CsvExportsPanel = () => {
                   >
                     <strong>{file.filename}</strong>
                     <small>
-                      {file.rowCount} rows ·{" "}
-                      {new Date(file.modifiedAt).toLocaleString(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
+                      {formatCsvFileDetail(file)}
                     </small>
                   </button>
                   <CsvDownloadButton
@@ -208,7 +204,7 @@ export const CsvExportsPanel = () => {
                       ? `${csvRows.totalRows} matching row${
                           csvRows.totalRows === 1 ? "" : "s"
                         }`
-                      : `${selectedFile.rowCount} rows`}
+                      : "Open the file to load rows"}
                   </p>
                 </div>
                 <label className={styles.searchLabel}>
@@ -283,4 +279,33 @@ export const CsvExportsPanel = () => {
       </div>
     </section>
   );
+};
+
+const formatCsvFileDetail = (file: CsvFileMetadata): string => {
+  const modifiedAt = new Date(file.modifiedAt).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const size = formatBytes(file.size);
+  const rowDetail =
+    typeof file.rowCount === "number" ? `${file.rowCount} rows` : size;
+
+  return `${rowDetail} · ${modifiedAt}`;
+};
+
+const formatBytes = (size: number): string => {
+  if (!Number.isFinite(size) || size < 0) {
+    return "Unknown size";
+  }
+
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  const kilobytes = size / 1024;
+  if (kilobytes < 1024) {
+    return `${kilobytes.toFixed(1)} KB`;
+  }
+
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
 };

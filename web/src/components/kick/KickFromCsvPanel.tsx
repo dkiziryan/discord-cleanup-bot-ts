@@ -148,11 +148,7 @@ export const KickFromCsvPanel = () => {
                     <span>
                       <strong>{file.filename}</strong>
                       <small>
-                        {file.rowCount} users ·{" "}
-                        {new Date(file.modifiedAt).toLocaleString(undefined, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
+                        {formatCsvFileDetail(file)}
                       </small>
                     </span>
                   </label>
@@ -254,4 +250,33 @@ export const KickFromCsvPanel = () => {
       )}
     </section>
   );
+};
+
+const formatCsvFileDetail = (file: CsvFileMetadata): string => {
+  const modifiedAt = new Date(file.modifiedAt).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const size = formatBytes(file.size);
+  const rowDetail =
+    typeof file.rowCount === "number" ? `${file.rowCount} users` : size;
+
+  return `${rowDetail} · ${modifiedAt}`;
+};
+
+const formatBytes = (size: number): string => {
+  if (!Number.isFinite(size) || size < 0) {
+    return "Unknown size";
+  }
+
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  const kilobytes = size / 1024;
+  if (kilobytes < 1024) {
+    return `${kilobytes.toFixed(1)} KB`;
+  }
+
+  return `${(kilobytes / 1024).toFixed(1)} MB`;
 };

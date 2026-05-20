@@ -59,7 +59,7 @@ export type CsvFileMetadata = {
   filename: string;
   size: number;
   modifiedAt: string;
-  rowCount: number;
+  rowCount?: number;
 };
 
 export type CsvFileListResponse = {
