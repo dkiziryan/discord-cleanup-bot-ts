@@ -173,6 +173,7 @@ export const scanChannelHistorySince = async (
   options?: {
     countReactionsAsActivity?: boolean;
     lastActivityByMemberId?: Map<string, LastActivityType>;
+    maxMessagesPerChannel?: number;
     onCheckCancelled?: () => void;
     onMessagesScanned?: (deltaMessages: number) => void;
   },
@@ -180,6 +181,7 @@ export const scanChannelHistorySince = async (
   const onCheckCancelled = options?.onCheckCancelled;
   const countReactionsAsActivity = options?.countReactionsAsActivity ?? false;
   const lastActivityByMemberId = options?.lastActivityByMemberId;
+  const maxMessagesPerChannel = options?.maxMessagesPerChannel;
   const onMessagesScanned = options?.onMessagesScanned;
   let totalMessages = 0;
   let unreportedMessages = 0;
@@ -226,6 +228,14 @@ export const scanChannelHistorySince = async (
 
     for (const message of orderedMessages) {
       onCheckCancelled?.();
+      if (
+        maxMessagesPerChannel !== undefined &&
+        totalMessages >= maxMessagesPerChannel
+      ) {
+        reachedCutoff = true;
+        break;
+      }
+
       if (message.createdTimestamp < cutoff.getTime()) {
         reachedCutoff = true;
         break;

@@ -23,6 +23,7 @@ export type ZeroMessagesRequest = {
   channelNames?: string[];
   dryRun?: boolean;
   countReactionsAsActivity?: boolean;
+  maxMessagesPerChannel?: number;
 };
 
 export type ScanStatus = {

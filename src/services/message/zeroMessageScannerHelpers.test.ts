@@ -105,6 +105,32 @@ test("scanChannelHistory fetches reaction users when cache is incomplete", async
   assert.equal(lastActivityByMemberId.get("member-reactive"), "reaction");
 });
 
+test("scanChannelHistory stops at maxMessagesPerChannel", async () => {
+  const remainingIds = new Set(["member-one", "member-two"]);
+  const lastActivityByMemberId = new Map<string, string>();
+  const channel = createTextChannel([
+    {
+      id: "message-1",
+      author: { bot: false, id: "member-one" },
+      createdTimestamp: 100,
+    },
+    {
+      id: "message-2",
+      author: { bot: false, id: "member-two" },
+      createdTimestamp: 200,
+    },
+  ]);
+
+  const result = await scanChannelHistory(channel as never, remainingIds, {
+    lastActivityByMemberId: lastActivityByMemberId as never,
+    maxMessagesPerChannel: 1,
+  });
+
+  assert.equal(result.totalMessages, 1);
+  assert.equal(remainingIds.has("member-one"), false);
+  assert.equal(remainingIds.has("member-two"), true);
+});
+
 type FakeMessage = {
   id: string;
   author: { bot: boolean; id: string };

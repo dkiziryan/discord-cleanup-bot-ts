@@ -124,6 +124,8 @@ const AUTH_RATE_LIMIT_MAX = 30;
 const WORKFLOW_RATE_LIMIT_MAX = 40;
 const SCAN_RESTART_WAIT_MS = 30_000;
 const SCAN_RESTART_POLL_MS = 250;
+const MIN_FAST_SCAN_MESSAGES_PER_CHANNEL = 100;
+const MAX_FAST_SCAN_MESSAGES_PER_CHANNEL = 100_000;
 const RATE_LIMITED_API_WORKFLOW_PATHS = new Set([
   "/cleanup-roles",
   "/inactive-channels",
@@ -155,6 +157,19 @@ export const waitForProcessingToStop = async (
   }
 
   return true;
+};
+
+const parseMaxMessagesPerChannel = (value: unknown): number | undefined => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < MIN_FAST_SCAN_MESSAGES_PER_CHANNEL) {
+    return undefined;
+  }
+
+  return Math.min(parsed, MAX_FAST_SCAN_MESSAGES_PER_CHANNEL);
 };
 
 export const startHttpServer = (
@@ -1003,6 +1018,9 @@ export const startHttpServer = (
     const requestChannels = parseChannelNames(req.body?.channelNames);
     const dryRun = Boolean(req.body?.dryRun);
     const countReactionsAsActivity = Boolean(req.body?.countReactionsAsActivity);
+    const maxMessagesPerChannel = parseMaxMessagesPerChannel(
+      req.body?.maxMessagesPerChannel,
+    );
     const discordUserId = requireAuthenticatedDiscordUserId(req, res);
     if (!discordUserId) {
       return;
@@ -1047,6 +1065,7 @@ export const startHttpServer = (
         inputJson: {
           dryRun,
           countReactionsAsActivity,
+          ...(maxMessagesPerChannel ? { maxMessagesPerChannel } : {}),
           guildId: activeGuildId,
           targetChannelNames,
         },
@@ -1092,6 +1111,7 @@ export const startHttpServer = (
         targetChannelNames,
         dryRun,
         countReactionsAsActivity,
+        maxMessagesPerChannel,
         isCancelled: cancellationController.isCancelled,
         progressCallbacks: {
           onChannelStart(channelName, index, total) {
@@ -1226,6 +1246,9 @@ export const startHttpServer = (
       req.body?.countReactionsAsActivity === undefined
         ? true
         : Boolean(req.body.countReactionsAsActivity);
+    const maxMessagesPerChannel = parseMaxMessagesPerChannel(
+      req.body?.maxMessagesPerChannel,
+    );
     const discordUserId = requireAuthenticatedDiscordUserId(req, res);
     if (!discordUserId) {
       return;
@@ -1286,6 +1309,7 @@ export const startHttpServer = (
           days: requestedDays,
           excludedCategories,
           countReactionsAsActivity,
+          ...(maxMessagesPerChannel ? { maxMessagesPerChannel } : {}),
           guildId: activeGuildId,
         },
         type: "inactive_scan",
@@ -1328,6 +1352,7 @@ export const startHttpServer = (
           days: requestedDays,
           excludedCategories,
           countReactionsAsActivity,
+          maxMessagesPerChannel,
           isCancelled: inactiveController.isCancelled,
           progressCallbacks: {
             onChannelStart(channelName, index, total) {

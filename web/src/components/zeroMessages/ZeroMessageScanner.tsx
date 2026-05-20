@@ -11,10 +11,13 @@ import { parseChannelInput } from "../../utils/channel";
 import { ProgressIndicator } from "../shared/ProgressIndicator";
 import { ZeroScanResults } from "./ZeroScanResults";
 
+const FAST_SCAN_MAX_MESSAGES_PER_CHANNEL = 5_000;
+
 export const ZeroMessageScanner = () => {
   const [channelInput, setChannelInput] = useState("");
   const [dryRun, setDryRun] = useState(false);
   const [countReactionsAsActivity, setCountReactionsAsActivity] = useState(false);
+  const [fastScan, setFastScan] = useState(true);
   const [activeView, setActiveView] = useState<"scan" | "results">("scan");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -143,6 +146,9 @@ export const ZeroMessageScanner = () => {
         channelNames: userChannels.length > 0 ? userChannels : undefined,
         countReactionsAsActivity,
         dryRun,
+        maxMessagesPerChannel: fastScan
+          ? FAST_SCAN_MAX_MESSAGES_PER_CHANNEL
+          : undefined,
       });
     } catch (error) {
       const message = (error as Error).message;
@@ -192,6 +198,15 @@ export const ZeroMessageScanner = () => {
                 disabled={loading}
               />
               <span>Count reactions as activity</span>
+            </label>
+            <label className={styles.dryRunToggle}>
+              <input
+                type="checkbox"
+                checked={fastScan}
+                onChange={(event) => setFastScan(event.target.checked)}
+                disabled={loading}
+              />
+              <span>Fast scan (first 5,000 messages per channel)</span>
             </label>
             <div className={styles.actions}>
               <button type="submit" disabled={loading}>

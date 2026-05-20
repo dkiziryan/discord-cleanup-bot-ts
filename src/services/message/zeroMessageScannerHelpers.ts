@@ -40,6 +40,7 @@ export const scanChannelHistory = async (
   options: {
     countReactionsAsActivity?: boolean;
     lastActivityByMemberId?: Map<string, LastActivityType>;
+    maxMessagesPerChannel?: number;
     onMemberProgress?: () => void;
     onCheckCancelled?: () => void;
   },
@@ -47,6 +48,7 @@ export const scanChannelHistory = async (
   const {
     countReactionsAsActivity = false,
     lastActivityByMemberId,
+    maxMessagesPerChannel,
     onMemberProgress,
     onCheckCancelled,
   } = options;
@@ -88,6 +90,13 @@ export const scanChannelHistory = async (
 
     for (const message of orderedMessages) {
       onCheckCancelled?.();
+      if (
+        maxMessagesPerChannel !== undefined &&
+        totalMessages >= maxMessagesPerChannel
+      ) {
+        break;
+      }
+
       totalMessages += 1;
 
       if (!message.author.bot && remainingIds.has(message.author.id)) {
@@ -130,6 +139,13 @@ export const scanChannelHistory = async (
     }
 
     if (remainingIds.size === 0) {
+      break;
+    }
+
+    if (
+      maxMessagesPerChannel !== undefined &&
+      totalMessages >= maxMessagesPerChannel
+    ) {
       break;
     }
 

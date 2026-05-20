@@ -4,6 +4,7 @@ export const requestInactiveScan = async (payload: {
   days: number;
   excludedCategories?: string[];
   countReactionsAsActivity?: boolean;
+  maxMessagesPerChannel?: number;
 }): Promise<void> =>
   apiVoid("/api/inactive-scan", {
     allowedStatuses: [202],

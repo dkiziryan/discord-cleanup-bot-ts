@@ -38,6 +38,7 @@ export const scanInactiveMembers = async (
     days,
     excludedCategories = [],
     countReactionsAsActivity = true,
+    maxMessagesPerChannel,
     ignoredUserIds: providedIgnoredUserIds,
     progressCallbacks,
     isCancelled,
@@ -109,24 +110,38 @@ export const scanInactiveMembers = async (
   const threadCollection = activeThreads
     ? new Collection(activeThreads.threads)
     : null;
-  const targetChannels = await resolveTargetChannels(
+  const resolvedTargetChannels = await resolveTargetChannels(
     guild,
     normalizedExcluded,
     threadCollection,
     throwIfCancelled,
   );
 
-  if (targetChannels.length === 0) {
+  if (resolvedTargetChannels.length === 0) {
     throw new Error("No eligible channels were found for inactivity scan.");
   }
 
-  const totalChannels = targetChannels.length;
   let totalMessagesScanned = 0;
   const skippedChannels: string[] = [];
   const processedChannels: string[] = [];
 
   const me = await resolveGuildMe(guild);
+  const targetChannels = resolvedTargetChannels.filter((channel) => {
+    const channelName = resolveScanTargetLabel(channel);
+    const canReadHistory = me
+      ? channel.permissionsFor(me)?.has("ReadMessageHistory") &&
+        channel.permissionsFor(me)?.has("ViewChannel")
+      : true;
 
+    if (!canReadHistory) {
+      skippedChannels.push(`${channelName} (missing history permission)`);
+      return false;
+    }
+
+    return true;
+  });
+
+  const totalChannels = targetChannels.length;
   let nextChannelIndex = 0;
   let completedChannels = 0;
 
@@ -141,17 +156,6 @@ export const scanInactiveMembers = async (
 
       const channel = targetChannels[index];
       const channelName = resolveScanTargetLabel(channel);
-
-      const canReadHistory = me
-        ? channel.permissionsFor(me)?.has("ReadMessageHistory") &&
-          channel.permissionsFor(me)?.has("ViewChannel")
-        : true;
-
-      if (!canReadHistory) {
-        skippedChannels.push(`${channelName} (missing history permission)`);
-        completedChannels += 1;
-        continue;
-      }
 
       processedChannels.push(channelName);
       progressCallbacks?.onChannelStart?.(
@@ -168,6 +172,7 @@ export const scanInactiveMembers = async (
           {
             countReactionsAsActivity,
             lastActivityByMemberId,
+            maxMessagesPerChannel,
             onCheckCancelled: throwIfCancelled,
             onMessagesScanned(deltaMessages) {
               totalMessagesScanned += deltaMessages;

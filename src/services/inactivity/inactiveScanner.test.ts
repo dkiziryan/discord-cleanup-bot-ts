@@ -241,3 +241,64 @@ test("scanInactiveMembers can count reactions as activity", async () => {
   assert.equal(result.lastActivityByMemberId.get("member-reactive"), "reaction");
   assert.deepEqual(messageProgress, [1]);
 });
+
+test("scanInactiveMembers stops each channel at maxMessagesPerChannel", async () => {
+  const now = Date.now();
+  const oldJoin = now - 120 * 24 * 60 * 60 * 1000;
+  const newerMessage = now - 5 * 24 * 60 * 60 * 1000;
+  const olderMessage = now - 10 * 24 * 60 * 60 * 1000;
+
+  const guild = createGuild({
+    members: [
+      {
+        id: "member-newer",
+        user: { bot: false, tag: "newer#1234" },
+        displayName: "Newer User",
+        joinedTimestamp: oldJoin,
+      },
+      {
+        id: "member-older",
+        user: { bot: false, tag: "older#1234" },
+        displayName: "Older User",
+        joinedTimestamp: oldJoin,
+      },
+      {
+        id: "member-inactive",
+        user: { bot: false, tag: "inactive#1234" },
+        displayName: "Inactive User",
+        joinedTimestamp: oldJoin,
+      },
+    ],
+    channels: [
+      createTextChannel({
+        id: "channel-1",
+        name: "general",
+        messages: [
+          {
+            id: "message-newer",
+            createdTimestamp: newerMessage,
+            author: { bot: false, id: "member-newer" },
+          },
+          {
+            id: "message-older",
+            createdTimestamp: olderMessage,
+            author: { bot: false, id: "member-older" },
+          },
+        ],
+      }),
+    ],
+  });
+
+  const result = await scanInactiveMembers(createClient(guild) as never, {
+    guildId: "123",
+    discordUserId: "456",
+    days: 30,
+    ignoredUserIds: new Set(),
+    maxMessagesPerChannel: 1,
+  });
+
+  assert.equal(result.totalMessagesScanned, 1);
+  assert.equal(result.inactiveMembers.some((member) => member.id === "member-newer"), false);
+  assert.equal(result.inactiveMembers.some((member) => member.id === "member-older"), true);
+  assert.equal(result.inactiveMembers.some((member) => member.id === "member-inactive"), true);
+});

@@ -10,10 +10,13 @@ import { CsvDownloadButton } from "../shared/CsvDownloadButton";
 import { ResultTile } from "../shared/ResultTile";
 import { InactiveProgressIndicator } from "./InactiveProgressIndicator";
 
+const FAST_SCAN_MAX_MESSAGES_PER_CHANNEL = 5_000;
+
 export const InactiveScanPanel = () => {
   const [days, setDays] = useState(180);
   const [excludedValue, setExcludedValue] = useState("");
   const [countReactionsAsActivity, setCountReactionsAsActivity] = useState(true);
+  const [fastScan, setFastScan] = useState(true);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -119,6 +122,9 @@ export const InactiveScanPanel = () => {
         days,
         excludedCategories: categories.length > 0 ? categories : undefined,
         countReactionsAsActivity,
+        maxMessagesPerChannel: fastScan
+          ? FAST_SCAN_MAX_MESSAGES_PER_CHANNEL
+          : undefined,
       });
     } catch (error) {
       const message = (error as Error).message;
@@ -195,6 +201,15 @@ export const InactiveScanPanel = () => {
             disabled={loading}
           />
           <span>Count reactions as activity</span>
+        </label>
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={fastScan}
+            onChange={(event) => setFastScan(event.target.checked)}
+            disabled={loading}
+          />
+          <span>Fast scan (first 5,000 messages per channel)</span>
         </label>
         <div className={styles.actions}>
           <button type="button" onClick={handleScan} disabled={loading} className="primary-button">

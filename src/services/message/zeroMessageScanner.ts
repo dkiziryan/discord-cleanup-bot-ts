@@ -39,6 +39,7 @@ export const scanZeroMessageUsers = async (
     targetChannelNames,
     dryRun = false,
     countReactionsAsActivity = false,
+    maxMessagesPerChannel,
     ignoredUserIds: providedIgnoredUserIds,
     progressCallbacks,
     isCancelled,
@@ -120,15 +121,30 @@ export const scanZeroMessageUsers = async (
     };
   }
 
-  const targetChannels = resolveTargetChannels(guild, targetChannelNames);
+  const matchedTargetChannels = resolveTargetChannels(guild, targetChannelNames);
 
-  if (targetChannels.length === 0) {
+  if (matchedTargetChannels.length === 0) {
     throw new Error("No target channels found with the provided names.");
   }
 
+  const skippedChannels: string[] = [];
+  const targetChannels = matchedTargetChannels.filter((channel) => {
+    const me = guild.members.me;
+    const canReadHistory = me
+      ? channel.permissionsFor(me)?.has("ReadMessageHistory") &&
+        channel.permissionsFor(me)?.has("ViewChannel")
+      : true;
+
+    if (!canReadHistory) {
+      skippedChannels.push(`${channel.name} (missing history permission)`);
+      return false;
+    }
+
+    return true;
+  });
+
   const totalChannels = targetChannels.length;
   let totalMessagesScanned = 0;
-  const skippedChannels: string[] = [];
   const processedChannels: string[] = [];
   let nextChannelIndex = 0;
   let completedChannels = 0;
@@ -156,6 +172,7 @@ export const scanZeroMessageUsers = async (
         const channelStats = await scanChannelHistory(channel, remainingIds, {
           countReactionsAsActivity,
           lastActivityByMemberId,
+          maxMessagesPerChannel,
           onMemberProgress: updateMemberProgress,
           onCheckCancelled: throwIfCancelled,
         });

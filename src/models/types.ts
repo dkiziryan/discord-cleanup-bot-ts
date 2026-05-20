@@ -13,6 +13,7 @@ export type ScanZeroMessagesOptions = {
   targetChannelNames: string[];
   dryRun?: boolean;
   countReactionsAsActivity?: boolean;
+  maxMessagesPerChannel?: number;
   ignoredUserIds?: Set<string>;
   isCancelled?: () => boolean;
   progressCallbacks?: ScanProgressCallbacks;
@@ -75,6 +76,7 @@ export type ScanInactiveMembersOptions = {
   days: number;
   excludedCategories?: string[];
   countReactionsAsActivity?: boolean;
+  maxMessagesPerChannel?: number;
   ignoredUserIds?: Set<string>;
   progressCallbacks?: ScanProgressCallbacks;
   isCancelled?: () => boolean;
