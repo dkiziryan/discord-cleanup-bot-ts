@@ -28,6 +28,7 @@ export type {
 
 const SUMMARY_PREVIEW_LIMIT = 10;
 const SKIPPED_PREVIEW_LIMIT = 5;
+const ZERO_MESSAGE_CSV_PREFIX = "users-with-zero-messages";
 
 export const scanZeroMessageUsers = async (
   client: Client,
@@ -56,10 +57,11 @@ export const scanZeroMessageUsers = async (
 
   if (dryRun) {
     const csvPath = await writeUserCsv(
-      "users",
+      ZERO_MESSAGE_CSV_PREFIX,
       [],
       { guildId, discordUserId },
       ["User ID", "Username", "Last Activity Type"],
+      { filenameStyle: "date-version" },
     );
     return {
       guildName: guild.name,
@@ -101,10 +103,11 @@ export const scanZeroMessageUsers = async (
 
   if (remainingIds.size === 0) {
     const csvPath = await writeUserCsv(
-      "users",
+      ZERO_MESSAGE_CSV_PREFIX,
       [],
       { guildId, discordUserId },
       ["User ID", "Username", "Last Activity Type"],
+      { filenameStyle: "date-version" },
     );
     return {
       guildName: guild.name,
@@ -227,10 +230,11 @@ export const scanZeroMessageUsers = async (
 
   throwIfCancelled();
   const csvPath = await writeUserCsv(
-    "users",
+    ZERO_MESSAGE_CSV_PREFIX,
     csvRows.map((row) => [row.id, row.username, row.lastActivityType]),
     { guildId, discordUserId },
     ["User ID", "Username", "Last Activity Type"],
+    { filenameStyle: "date-version" },
   );
 
   const previewNames = zeroMessageUsers

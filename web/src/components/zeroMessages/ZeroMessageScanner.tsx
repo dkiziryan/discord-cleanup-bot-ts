@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import styles from "./ZeroMessageScanner.module.css";
@@ -26,6 +26,7 @@ export const ZeroMessageScanner = () => {
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const scanRequestInFlight = useRef(false);
 
   useEffect(() => {
     void loadDefaultChannels();
@@ -57,6 +58,10 @@ export const ZeroMessageScanner = () => {
           setStatusMessage(payload.lastMessage);
           setErrorMessage(null);
           setLoading(false);
+        } else if (!payload.inProgress && !scanRequestInFlight.current) {
+          setStatusMessage("No scan is currently running.");
+          setErrorMessage(null);
+          setLoading(false);
         }
       }
     };
@@ -70,6 +75,7 @@ export const ZeroMessageScanner = () => {
       }, 1000);
     } else {
       setScanStatus(null);
+      setCancelling(false);
     }
 
     return () => {
@@ -118,6 +124,7 @@ export const ZeroMessageScanner = () => {
     setResult(null);
     setActiveView("scan");
     setLoading(true);
+    scanRequestInFlight.current = true;
 
     void runScan();
   };
@@ -132,7 +139,13 @@ export const ZeroMessageScanner = () => {
     try {
       await cancelScan();
     } catch (error) {
-      setErrorMessage((error as Error).message);
+      const message = (error as Error).message;
+      if (message === "No scan is currently running.") {
+        setStatusMessage(message);
+        setLoading(false);
+      } else {
+        setErrorMessage(message);
+      }
     } finally {
       setCancelling(false);
     }
@@ -162,6 +175,8 @@ export const ZeroMessageScanner = () => {
       setResult(null);
       setActiveView("scan");
       setLoading(false);
+    } finally {
+      scanRequestInFlight.current = false;
     }
   };
 

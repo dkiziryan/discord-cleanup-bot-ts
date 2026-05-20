@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import styles from "./InactiveScanPanel.module.css";
 import type { InactiveScanResponse, InactiveScanStatus } from "../../models/types";
@@ -25,6 +25,7 @@ export const InactiveScanPanel = () => {
   const [scanStatus, setScanStatus] = useState<InactiveScanStatus | null>(null);
   const [defaultCategories, setDefaultCategories] = useState<string[]>([]);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const scanRequestInFlight = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +70,10 @@ export const InactiveScanPanel = () => {
           setStatusMessage(data.lastMessage);
           setErrorMessage(null);
           setLoading(false);
+        } else if (data && !data.inProgress && !scanRequestInFlight.current) {
+          setStatusMessage("No inactive scan is currently running.");
+          setErrorMessage(null);
+          setLoading(false);
         }
       }
     };
@@ -108,6 +113,7 @@ export const InactiveScanPanel = () => {
     }
 
     setLoading(true);
+    scanRequestInFlight.current = true;
     setStatusMessage(null);
     setErrorMessage(null);
     setResult(null);
@@ -135,6 +141,8 @@ export const InactiveScanPanel = () => {
         setErrorMessage(message);
       }
       setLoading(false);
+    } finally {
+      scanRequestInFlight.current = false;
     }
   };
 
@@ -149,7 +157,15 @@ export const InactiveScanPanel = () => {
       setStatusMessage("Inactive scan cancellation requested.");
       setErrorMessage(null);
     } catch (error) {
-      setErrorMessage((error as Error).message);
+      const message = (error as Error).message;
+      if (message === "No inactive scan is currently running.") {
+        setStatusMessage(message);
+        setErrorMessage(null);
+        setLoading(false);
+      } else {
+        setErrorMessage(message);
+      }
+    } finally {
       setCancelling(false);
     }
   };
