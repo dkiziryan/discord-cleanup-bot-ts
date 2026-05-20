@@ -53,6 +53,20 @@ export const scanChannelHistory = async (
   let totalMessages = 0;
   let lastMessageId: string | undefined;
 
+  const markReactionUsersAsActive = (
+    users: Iterable<{ id: string; bot?: boolean | null }>,
+  ) => {
+    for (const user of users) {
+      if (user.bot || !remainingIds.has(user.id)) {
+        continue;
+      }
+
+      remainingIds.delete(user.id);
+      lastActivityByMemberId?.set(user.id, "reaction");
+      onMemberProgress?.();
+    }
+  };
+
   while (true) {
     onCheckCancelled?.();
     if (remainingIds.size === 0) {
@@ -86,20 +100,23 @@ export const scanChannelHistory = async (
       if (countReactionsAsActivity && reactions && remainingIds.size > 0) {
         for (const reaction of reactions.values()) {
           onCheckCancelled?.();
+          markReactionUsersAsActive(reaction.users.cache.values());
+
+          if (remainingIds.size === 0) {
+            break;
+          }
+
+          const reactionCount = reaction.count ?? reaction.users.cache.size;
+          if (reaction.users.cache.size >= reactionCount) {
+            continue;
+          }
+
           const users = await reaction.users.fetch().catch(() => null);
           if (!users) {
             continue;
           }
 
-          for (const user of users.values()) {
-            if (user.bot || !remainingIds.has(user.id)) {
-              continue;
-            }
-
-            remainingIds.delete(user.id);
-            lastActivityByMemberId?.set(user.id, "reaction");
-            onMemberProgress?.();
-          }
+          markReactionUsersAsActive(users.values());
 
           if (remainingIds.size === 0) {
             break;
