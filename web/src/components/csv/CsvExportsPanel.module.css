@@ -1,0 +1,208 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.header h2,
+.header p {
+  margin: 0;
+}
+
+.header p {
+  color: var(--discord-text-muted);
+  margin-top: 0.25rem;
+}
+
+.layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+}
+
+.fileList,
+.viewer {
+  background: var(--discord-bg-raised);
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-lg);
+  padding: 1rem;
+}
+
+.fileList ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fileItem {
+  align-items: center;
+  background: var(--discord-bg-floating);
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-md);
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  padding: 0.65rem 0.7rem;
+}
+
+.selectedFile {
+  border-color: var(--discord-blurple);
+}
+
+.fileButton {
+  background: transparent;
+  border: 0;
+  color: var(--discord-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.fileButton:hover,
+.fileButton:focus-visible {
+  color: #ffffff;
+}
+
+.fileButton:focus-visible {
+  outline: none;
+}
+
+.fileButton strong {
+  font-size: 0.92rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.fileButton small {
+  color: var(--discord-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+
+.fileDownload {
+  align-self: center;
+  justify-self: end;
+}
+
+.viewerHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.viewerHeader h3,
+.viewerHeader p {
+  margin: 0;
+}
+
+.viewerHeader p {
+  color: var(--discord-text-muted);
+  margin-top: 0.25rem;
+}
+
+.searchLabel {
+  color: var(--discord-text);
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  gap: 0.35rem;
+  min-width: min(100%, 280px);
+}
+
+.searchLabel input {
+  background: var(--discord-bg-deep);
+  border: 1px solid var(--discord-border-strong);
+  border-radius: var(--discord-radius-md);
+  color: var(--discord-text);
+  font: inherit;
+  min-height: 40px;
+  padding: 0.6rem 0.75rem;
+}
+
+.searchLabel input:focus {
+  border-color: var(--discord-blurple);
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.28);
+  outline: none;
+}
+
+.tableWrap {
+  border: 1px solid var(--discord-border);
+  border-radius: var(--discord-radius-md);
+  overflow-x: auto;
+}
+
+.tableWrap table {
+  border-collapse: collapse;
+  min-width: 640px;
+  width: 100%;
+}
+
+.tableWrap th,
+.tableWrap td {
+  border-bottom: 1px solid var(--discord-border);
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tableWrap th {
+  background: var(--discord-bg-floating);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.tableWrap td {
+  overflow-wrap: anywhere;
+}
+
+.tableWrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.pageCount {
+  color: var(--discord-text-muted);
+  font-weight: 700;
+}
+
+.empty {
+  color: var(--discord-text-muted);
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .header,
+  .viewerHeader,
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -104,6 +104,19 @@ export type CsvFileMetadata = {
   rowCount: number;
 };
 
+export type CsvRow = Record<string, string>;
+
+export type CsvRowsResponse = {
+  filename: string;
+  columns: string[];
+  rows: CsvRow[];
+  page: number;
+  pageSize: number;
+  totalRows: number;
+  totalPages: number;
+  search: string;
+};
+
 export type KickFromCsvFileResult = {
   filename: string;
   dryRun: boolean;

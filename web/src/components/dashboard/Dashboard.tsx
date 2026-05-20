@@ -8,12 +8,14 @@ import { CleanupRolesPanel } from "../roles/CleanupRolesPanel";
 import { ZeroMessageScanner } from "../zeroMessages/ZeroMessageScanner";
 import { ActivityHistoryPanel } from "../history/ActivityHistoryPanel";
 import { ServerSettingsPanel } from "../settings/ServerSettingsPanel";
+import { CsvExportsPanel } from "../csv/CsvExportsPanel";
 import type { AuthUser } from "../../services/auth/auth";
 
 export type PanelKey =
   | "zero"
   | "inactive"
   | "kick"
+  | "csv"
   | "roles"
   | "archive"
   | "settings"
@@ -71,6 +73,12 @@ export const Dashboard = ({
         description:
           "Select one or more CSV exports and kick the matching members (or run a dry run).",
         component: <KickFromCsvPanel />,
+      },
+      csv: {
+        title: "CSV exports",
+        description:
+          "Open generated CSV files, search by username, and page through results.",
+        component: <CsvExportsPanel />,
       },
       roles: {
         title: "Remove empty roles",

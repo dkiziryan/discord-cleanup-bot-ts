@@ -62,6 +62,7 @@ describe("AdminDashboard", () => {
     const html = renderDashboard(authorizedAuthState);
 
     expect(html).toContain("Scan for zero messages");
+    expect(html).toContain("CSV exports");
   });
 
   it("renders the unauthorized title for an unauthorized user", () => {

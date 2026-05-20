@@ -66,6 +66,19 @@ export type CsvFileListResponse = {
   files: CsvFileMetadata[];
 };
 
+export type CsvRow = Record<string, string>;
+
+export type CsvRowsResponse = {
+  filename: string;
+  columns: string[];
+  rows: CsvRow[];
+  page: number;
+  pageSize: number;
+  totalRows: number;
+  totalPages: number;
+  search: string;
+};
+
 export type JobHistoryItem = {
   id: string;
   type: string;

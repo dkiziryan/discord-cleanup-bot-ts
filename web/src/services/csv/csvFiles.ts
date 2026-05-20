@@ -1,4 +1,8 @@
-import type { CsvFileListResponse, CsvFileMetadata } from "../../models/types";
+import type {
+  CsvFileListResponse,
+  CsvFileMetadata,
+  CsvRowsResponse,
+} from "../../models/types";
 import { apiJson } from "../apiClient";
 
 export const fetchCsvFiles = async (): Promise<CsvFileMetadata[]> => {
@@ -10,3 +14,30 @@ export const fetchCsvFiles = async (): Promise<CsvFileMetadata[]> => {
 
 export const buildCsvDownloadUrl = (filename: string): string =>
   `/api/csv-files/${encodeURIComponent(filename)}/download`;
+
+export const fetchCsvRows = async ({
+  filename,
+  page,
+  pageSize,
+  search,
+}: {
+  filename: string;
+  page: number;
+  pageSize: number;
+  search: string;
+}): Promise<CsvRowsResponse> => {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (search.trim()) {
+    params.set("search", search.trim());
+  }
+
+  return apiJson<CsvRowsResponse>(
+    `/api/csv-files/${encodeURIComponent(filename)}/rows?${params.toString()}`,
+    {
+      errorMessage: "Failed to load CSV rows.",
+    },
+  );
+};

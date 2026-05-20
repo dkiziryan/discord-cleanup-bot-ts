@@ -10,3 +10,26 @@
   padding: 0.35rem 0.6rem;
   white-space: nowrap;
 }
+
+.iconOnly {
+  background: var(--discord-bg-deep);
+  border-color: var(--discord-border);
+  border-radius: var(--discord-radius-sm);
+  color: var(--discord-text-muted);
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  width: 30px;
+}
+
+.iconOnly:hover,
+.iconOnly:focus-visible {
+  color: var(--discord-text);
+}
+
+.icon {
+  display: block;
+  fill: currentColor;
+  height: 18px;
+  width: 18px;
+}

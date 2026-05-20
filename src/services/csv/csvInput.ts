@@ -8,6 +8,11 @@ import {
 
 export type CsvRow = Record<string, string>;
 
+export type CsvDocument = {
+  columns: string[];
+  rows: CsvRow[];
+};
+
 export const resolveCsvPath = async (
   filename: string,
   scope: CsvOwnerScope,
@@ -30,9 +35,16 @@ export const readCsvRowsByFilename = async (
 };
 
 export const parseCsvRows = (contents: string): CsvRow[] => {
+  return parseCsvDocument(contents).rows;
+};
+
+export const parseCsvDocument = (contents: string): CsvDocument => {
   const lines = contents.split(/\r?\n/).filter((line) => line.trim().length > 0);
   if (lines.length === 0) {
-    return [];
+    return {
+      columns: [],
+      rows: [],
+    };
   }
 
   const headers = parseCsvLine(lines[0]);
@@ -47,7 +59,10 @@ export const parseCsvRows = (contents: string): CsvRow[] => {
     rows.push(row);
   }
 
-  return rows;
+  return {
+    columns: headers,
+    rows,
+  };
 };
 
 const parseCsvLine = (line: string): string[] => {
