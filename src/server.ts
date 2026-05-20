@@ -1359,17 +1359,6 @@ export const startHttpServer = (
           data: responseData,
         };
 
-        await registerCsvArtifact({
-          csvPath: result.csvPath,
-          jobId,
-        });
-        await completeJob(jobId, {
-          resultJson: {
-            data: responseData,
-            message,
-          },
-        });
-
         markInactiveScanIdle();
         updateInactiveStatus(activeGuildId, {
           inProgress: false,
@@ -1383,6 +1372,25 @@ export const startHttpServer = (
           lastMessage: `Inactive scan complete. Found ${result.inactiveMembers.length} users.`,
           errorMessage: null,
           result: response,
+        });
+
+        await registerCsvArtifact({
+          csvPath: result.csvPath,
+          jobId,
+        }).catch((artifactError) => {
+          console.error(
+            `Failed to persist inactive scan CSV artifact for job ${jobId}: ${(artifactError as Error).message}`,
+          );
+        });
+        await completeJob(jobId, {
+          resultJson: {
+            data: responseData,
+            message,
+          },
+        }).catch((jobError) => {
+          console.error(
+            `Failed to persist completed inactive scan job ${jobId}: ${(jobError as Error).message}`,
+          );
         });
       } catch (error) {
         if (error instanceof ScanCancelledError) {
