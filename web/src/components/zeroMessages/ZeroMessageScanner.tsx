@@ -12,6 +12,7 @@ import { ProgressIndicator } from "../shared/ProgressIndicator";
 import { ZeroScanResults } from "./ZeroScanResults";
 
 const FAST_SCAN_MAX_MESSAGES_PER_CHANNEL = 5_000;
+const SCAN_START_GRACE_PERIOD_MS = 15_000;
 
 export const ZeroMessageScanner = () => {
   const [channelInput, setChannelInput] = useState("");
@@ -27,6 +28,7 @@ export const ZeroMessageScanner = () => {
   const [cancelling, setCancelling] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const scanRequestInFlight = useRef(false);
+  const scanStartedAt = useRef<number | null>(null);
 
   useEffect(() => {
     void loadDefaultChannels();
@@ -41,6 +43,9 @@ export const ZeroMessageScanner = () => {
     const fetchStatus = async () => {
       const payload = await fetchScanStatus();
       if (!cancelled && payload) {
+        const scanAgeMs =
+          scanStartedAt.current === null ? 0 : Date.now() - scanStartedAt.current;
+        const startGracePeriodExpired = scanAgeMs > SCAN_START_GRACE_PERIOD_MS;
         setScanStatus(payload);
         if (!payload.inProgress && payload.result) {
           setResult(payload.result);
@@ -58,9 +63,21 @@ export const ZeroMessageScanner = () => {
           setStatusMessage(payload.lastMessage);
           setErrorMessage(null);
           setLoading(false);
-        } else if (!payload.inProgress && !scanRequestInFlight.current) {
-          setStatusMessage("No scan is currently running.");
-          setErrorMessage(null);
+        } else if (
+          !payload.inProgress &&
+          (!scanRequestInFlight.current || startGracePeriodExpired)
+        ) {
+          setStatusMessage(null);
+          setErrorMessage("Scan did not start. Try again.");
+          setLoading(false);
+        } else if (
+          payload.inProgress &&
+          payload.totalChannels === 0 &&
+          payload.startedAt &&
+          startGracePeriodExpired
+        ) {
+          setStatusMessage(null);
+          setErrorMessage(payload.lastMessage ?? "Scan did not report target channels.");
           setLoading(false);
         }
       }
@@ -76,6 +93,7 @@ export const ZeroMessageScanner = () => {
     } else {
       setScanStatus(null);
       setCancelling(false);
+      scanStartedAt.current = null;
     }
 
     return () => {
@@ -125,6 +143,7 @@ export const ZeroMessageScanner = () => {
     setActiveView("scan");
     setLoading(true);
     scanRequestInFlight.current = true;
+    scanStartedAt.current = Date.now();
 
     void runScan();
   };
@@ -142,6 +161,7 @@ export const ZeroMessageScanner = () => {
       const message = (error as Error).message;
       if (message === "No scan is currently running.") {
         setStatusMessage(message);
+        setErrorMessage(null);
         setLoading(false);
       } else {
         setErrorMessage(message);
