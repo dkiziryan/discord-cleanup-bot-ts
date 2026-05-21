@@ -14,13 +14,8 @@ import {
   scanZeroMessageUsers,
 } from "./services/message/zeroMessageScanner";
 import { ScanCancelledError } from "./services/errors";
-import { listCsvFiles } from "./services/csv/csvManager";
-import { readScopedCsvFile } from "./services/csv/csvStorage";
-import { buildCsvRowsPage } from "./services/csv/csvRows";
 
 import type {
-  CsvFileListResponse,
-  CsvRowsResponse,
   IgnoredUsersResponse,
   KickFromCsvResponse,
   InactiveScanStatus,
@@ -83,6 +78,7 @@ import {
   createScanCancellationController,
   type ScanCancellationController,
 } from "./utils/cancellationController";
+import { registerCsvRoutes } from "./routes/csvRoutes";
 
 const initialScanStatus = (): ScanStatus => ({
   inProgress: false,
@@ -616,27 +612,9 @@ export const startHttpServer = (
     res.json({ ...getInactiveStatus(activeGuildId) });
   });
 
-  app.get("/api/csv-files", async (req, res) => {
-    const activeGuildId = requireSelectedGuildId(req, res);
-    if (!activeGuildId) {
-      return;
-    }
-
-    const discordUserId = requireAuthenticatedDiscordUserId(req, res);
-    if (!discordUserId) {
-      return;
-    }
-
-    try {
-      const files = await listCsvFiles({
-        guildId: activeGuildId,
-        discordUserId,
-      });
-      const payload: CsvFileListResponse = { files };
-      res.json(payload);
-    } catch (error) {
-      res.status(500).json({ message: (error as Error).message });
-    }
+  registerCsvRoutes(app, {
+    requireAuthenticatedDiscordUserId,
+    requireSelectedGuildId,
   });
 
   app.get("/api/job-history", async (req, res) => {
@@ -765,69 +743,6 @@ export const startHttpServer = (
       res.send(contents);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
-    }
-  });
-
-  app.get("/api/csv-files/:filename/download", async (req, res) => {
-    const activeGuildId = requireSelectedGuildId(req, res);
-    if (!activeGuildId) {
-      return;
-    }
-
-    const discordUserId = requireAuthenticatedDiscordUserId(req, res);
-    if (!discordUserId) {
-      return;
-    }
-
-    try {
-      const csvFile = await readScopedCsvFile(req.params.filename, {
-        guildId: activeGuildId,
-        discordUserId,
-      });
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${csvFile.filename.replace(/"/g, "")}"`,
-      );
-      res.setHeader("Content-Length", String(csvFile.size));
-      res.send(csvFile.contents);
-    } catch (error) {
-      const message = (error as Error).message;
-      const status = message.includes("not found") ? 404 : 400;
-      res.status(status).json({ message });
-    }
-  });
-
-  app.get("/api/csv-files/:filename/rows", async (req, res) => {
-    const activeGuildId = requireSelectedGuildId(req, res);
-    if (!activeGuildId) {
-      return;
-    }
-
-    const discordUserId = requireAuthenticatedDiscordUserId(req, res);
-    if (!discordUserId) {
-      return;
-    }
-
-    try {
-      const csvFile = await readScopedCsvFile(req.params.filename, {
-        guildId: activeGuildId,
-        discordUserId,
-      });
-      const payload: CsvRowsResponse = buildCsvRowsPage(
-        csvFile.filename,
-        csvFile.contents,
-        {
-          page: req.query.page,
-          pageSize: req.query.pageSize,
-          search: req.query.search,
-        },
-      );
-      res.json(payload);
-    } catch (error) {
-      const message = (error as Error).message;
-      const status = message.includes("not found") ? 404 : 400;
-      res.status(status).json({ message });
     }
   });
 
