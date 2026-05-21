@@ -60,6 +60,7 @@ import {
 import { registerAuthRoutes } from "./routes/authRoutes";
 import { registerCsvRoutes } from "./routes/csvRoutes";
 import { registerSettingsRoutes } from "./routes/settingsRoutes";
+import { registerStatusRoutes } from "./routes/statusRoutes";
 
 const initialScanStatus = (): ScanStatus => ({
   inProgress: false,
@@ -436,22 +437,18 @@ export const startHttpServer = (
     res.json({ categories: settings.inactiveExcludedCategories });
   });
 
-  app.get("/api/scan-status", (req, res) => {
-    const activeGuildId = requireSelectedGuildId(req, res);
-    if (!activeGuildId) {
-      return;
-    }
-
-    res.json({ ...getScanStatus(activeGuildId) });
-  });
-
-  app.get("/api/inactive-status", (req, res) => {
-    const activeGuildId = requireSelectedGuildId(req, res);
-    if (!activeGuildId) {
-      return;
-    }
-
-    res.json({ ...getInactiveStatus(activeGuildId) });
+  registerStatusRoutes(app, {
+    activeCancellationByGuild,
+    getInactiveStatus,
+    getScanStatus,
+    inactiveCancellationByGuild,
+    isInactiveProcessingByGuild,
+    isKickProcessingByGuild,
+    isProcessingByGuild,
+    kickCancellationByGuild,
+    requireSelectedGuildId,
+    updateInactiveStatus,
+    updateScanStatus,
   });
 
   registerCsvRoutes(app, {
@@ -476,68 +473,6 @@ export const startHttpServer = (
 
   registerSettingsRoutes(app, {
     requireSelectedGuildId,
-  });
-
-  app.post("/api/cancel-scan", (req, res) => {
-    const activeGuildId = requireSelectedGuildId(req, res);
-    if (!activeGuildId) {
-      return;
-    }
-
-    const activeCancellation = activeCancellationByGuild.get(activeGuildId);
-    if (!isProcessingByGuild.get(activeGuildId) || !activeCancellation) {
-      res.status(409).json({ message: "No scan is currently running." });
-      return;
-    }
-
-    activeCancellation.cancel();
-    updateScanStatus(activeGuildId, {
-      lastMessage: "Cancelling scan…",
-      errorMessage: null,
-    });
-    res.json({ message: "Cancellation requested." });
-  });
-
-  app.post("/api/cancel-inactive", (req, res) => {
-    const activeGuildId = requireSelectedGuildId(req, res);
-    if (!activeGuildId) {
-      return;
-    }
-
-    const inactiveCancellation =
-      inactiveCancellationByGuild.get(activeGuildId);
-    if (
-      !isInactiveProcessingByGuild.get(activeGuildId) ||
-      !inactiveCancellation
-    ) {
-      res
-        .status(409)
-        .json({ message: "No inactive scan is currently running." });
-      return;
-    }
-
-    inactiveCancellation.cancel();
-    updateInactiveStatus(activeGuildId, {
-      lastMessage: "Cancelling inactive scan…",
-      errorMessage: null,
-    });
-    res.json({ message: "Cancellation requested." });
-  });
-
-  app.post("/api/cancel-kick", (req, res) => {
-    const activeGuildId = requireSelectedGuildId(req, res);
-    if (!activeGuildId) {
-      return;
-    }
-
-    const kickCancellation = kickCancellationByGuild.get(activeGuildId);
-    if (!isKickProcessingByGuild.get(activeGuildId) || !kickCancellation) {
-      res.status(409).json({ message: "No kick job is currently running." });
-      return;
-    }
-
-    kickCancellation.cancel();
-    res.json({ message: "Cancellation requested." });
   });
 
   app.post("/api/cleanup-roles", async (req, res) => {
