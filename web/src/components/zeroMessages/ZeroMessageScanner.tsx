@@ -7,6 +7,7 @@ import { fetchDefaultChannels } from "../../services/zeroMessages/defaultChannel
 import { cancelScan } from "../../services/zeroMessages/cancelScan";
 import { fetchScanStatus } from "../../services/zeroMessages/scanStatus";
 import { requestZeroMessageScan } from "../../services/zeroMessages/zeroMessages";
+import { useScanStatusPolling } from "../../hooks/useScanStatusPolling";
 import { parseChannelInput } from "../../utils/channel";
 import { ProgressIndicator } from "../shared/ProgressIndicator";
 import { ZeroScanResults } from "./ZeroScanResults";
@@ -26,7 +27,6 @@ export const ZeroMessageScanner = () => {
   const [result, setResult] = useState<ScanResponse | null>(null);
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const scanRequestInFlight = useRef(false);
   const scanStartedAt = useRef<number | null>(null);
 
@@ -34,78 +34,58 @@ export const ZeroMessageScanner = () => {
     void loadDefaultChannels();
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    let intervalId: number | undefined;
-    let timerId: number | undefined;
-    const startedAt = Date.now();
-
-    const fetchStatus = async () => {
-      const payload = await fetchScanStatus();
-      if (!cancelled && payload) {
-        const scanAgeMs =
-          scanStartedAt.current === null ? 0 : Date.now() - scanStartedAt.current;
-        const startGracePeriodExpired = scanAgeMs > SCAN_START_GRACE_PERIOD_MS;
-        setScanStatus(payload);
-        if (!payload.inProgress && payload.result) {
-          setResult(payload.result);
-          setStatusMessage(payload.result.message);
-          setErrorMessage(null);
-          setActiveView("results");
-          setLoading(false);
-        } else if (!payload.inProgress && payload.errorMessage) {
-          setResult(null);
-          setStatusMessage(null);
-          setErrorMessage(payload.errorMessage);
-          setActiveView("scan");
-          setLoading(false);
-        } else if (!payload.inProgress && payload.lastMessage) {
-          setStatusMessage(payload.lastMessage);
-          setErrorMessage(null);
-          setLoading(false);
-        } else if (
-          !payload.inProgress &&
-          (!scanRequestInFlight.current || startGracePeriodExpired)
-        ) {
-          setStatusMessage(null);
-          setErrorMessage("Scan did not start. Try again.");
-          setLoading(false);
-        } else if (
-          payload.inProgress &&
-          payload.totalChannels === 0 &&
-          payload.startedAt &&
-          startGracePeriodExpired
-        ) {
-          setStatusMessage(null);
-          setErrorMessage(payload.lastMessage ?? "Scan did not report target channels.");
-          setLoading(false);
-        }
+  const elapsedSeconds = useScanStatusPolling({
+    loading,
+    pollStatus: fetchScanStatus,
+    onStatus: (payload) => {
+      if (!payload) {
+        return;
       }
-    };
 
-    if (loading) {
-      setElapsedSeconds(0);
-      void fetchStatus();
-      intervalId = window.setInterval(fetchStatus, 1500);
-      timerId = window.setInterval(() => {
-        setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-      }, 1000);
-    } else {
+      const scanAgeMs =
+        scanStartedAt.current === null ? 0 : Date.now() - scanStartedAt.current;
+      const startGracePeriodExpired = scanAgeMs > SCAN_START_GRACE_PERIOD_MS;
+      setScanStatus(payload);
+      if (!payload.inProgress && payload.result) {
+        setResult(payload.result);
+        setStatusMessage(payload.result.message);
+        setErrorMessage(null);
+        setActiveView("results");
+        setLoading(false);
+      } else if (!payload.inProgress && payload.errorMessage) {
+        setResult(null);
+        setStatusMessage(null);
+        setErrorMessage(payload.errorMessage);
+        setActiveView("scan");
+        setLoading(false);
+      } else if (!payload.inProgress && payload.lastMessage) {
+        setStatusMessage(payload.lastMessage);
+        setErrorMessage(null);
+        setLoading(false);
+      } else if (
+        !payload.inProgress &&
+        (!scanRequestInFlight.current || startGracePeriodExpired)
+      ) {
+        setStatusMessage(null);
+        setErrorMessage("Scan did not start. Try again.");
+        setLoading(false);
+      } else if (
+        payload.inProgress &&
+        payload.totalChannels === 0 &&
+        payload.startedAt &&
+        startGracePeriodExpired
+      ) {
+        setStatusMessage(null);
+        setErrorMessage(payload.lastMessage ?? "Scan did not report target channels.");
+        setLoading(false);
+      }
+    },
+    onStop: () => {
       setScanStatus(null);
       setCancelling(false);
       scanStartedAt.current = null;
-    }
-
-    return () => {
-      cancelled = true;
-      if (intervalId !== undefined) {
-        window.clearInterval(intervalId);
-      }
-      if (timerId !== undefined) {
-        window.clearInterval(timerId);
-      }
-    };
-  }, [loading]);
+    },
+  });
 
   const formattedElapsedTime = useMemo(() => {
     const minutes = Math.floor(elapsedSeconds / 60);

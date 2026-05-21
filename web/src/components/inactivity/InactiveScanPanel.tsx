@@ -6,6 +6,7 @@ import { requestInactiveScan } from "../../services/inactivity/inactiveScan";
 import { cancelInactiveScan } from "../../services/inactivity/cancelInactiveScan";
 import { fetchInactiveStatus } from "../../services/inactivity/inactiveStatus";
 import { fetchDefaultInactiveCategories } from "../../services/inactivity/inactiveDefaults";
+import { useScanStatusPolling } from "../../hooks/useScanStatusPolling";
 import { CsvDownloadButton } from "../shared/CsvDownloadButton";
 import { ResultTile } from "../shared/ResultTile";
 import { InactiveProgressIndicator } from "./InactiveProgressIndicator";
@@ -24,7 +25,6 @@ export const InactiveScanPanel = () => {
   const [cancelling, setCancelling] = useState(false);
   const [scanStatus, setScanStatus] = useState<InactiveScanStatus | null>(null);
   const [defaultCategories, setDefaultCategories] = useState<string[]>([]);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const scanRequestInFlight = useRef(false);
 
   useEffect(() => {
@@ -46,60 +46,40 @@ export const InactiveScanPanel = () => {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    let intervalId: number | undefined;
-    let timerId: number | undefined;
-    const startedAt = Date.now();
-
-    const poll = async () => {
-      const data = await fetchInactiveStatus();
-      if (!cancelled) {
-        setScanStatus(data);
-        if (data?.result && !data.inProgress) {
-          setResult(data.result);
-          setStatusMessage(data.result.message);
-          setErrorMessage(null);
-          setLoading(false);
-        } else if (data?.errorMessage && !data.inProgress) {
-          setResult(null);
-          setErrorMessage(data.errorMessage);
-          setStatusMessage(null);
-          setLoading(false);
-        } else if (data?.lastMessage && !data.inProgress) {
-          setStatusMessage(data.lastMessage);
-          setErrorMessage(null);
-          setLoading(false);
-        } else if (data && !data.inProgress && !scanRequestInFlight.current) {
-          setStatusMessage("No inactive scan is currently running.");
-          setErrorMessage(null);
-          setLoading(false);
-        }
+  const elapsedSeconds = useScanStatusPolling({
+    loading,
+    pollStatus: fetchInactiveStatus,
+    onStatus: (data) => {
+      setScanStatus(data);
+      if (!data) {
+        return;
       }
-    };
 
-    if (loading) {
-      setElapsedSeconds(0);
-      void poll();
-      intervalId = window.setInterval(poll, 1500);
-      timerId = window.setInterval(() => {
-        setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-      }, 1000);
-    } else {
+      if (data.result && !data.inProgress) {
+        setResult(data.result);
+        setStatusMessage(data.result.message);
+        setErrorMessage(null);
+        setLoading(false);
+      } else if (data.errorMessage && !data.inProgress) {
+        setResult(null);
+        setErrorMessage(data.errorMessage);
+        setStatusMessage(null);
+        setLoading(false);
+      } else if (data.lastMessage && !data.inProgress) {
+        setStatusMessage(data.lastMessage);
+        setErrorMessage(null);
+        setLoading(false);
+      } else if (!data.inProgress && !scanRequestInFlight.current) {
+        setStatusMessage("No inactive scan is currently running.");
+        setErrorMessage(null);
+        setLoading(false);
+      }
+    },
+    onStop: () => {
       setScanStatus(null);
       setCancelling(false);
-    }
-
-    return () => {
-      cancelled = true;
-      if (intervalId !== undefined) {
-        window.clearInterval(intervalId);
-      }
-      if (timerId !== undefined) {
-        window.clearInterval(timerId);
-      }
-    };
-  }, [loading]);
+    },
+  });
 
   const formattedElapsedTime = useMemo(() => {
     const minutes = Math.floor(elapsedSeconds / 60);
