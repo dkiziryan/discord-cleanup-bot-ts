@@ -72,7 +72,7 @@ Destructive workflows are guarded by preview or dry-run steps where possible.
 - Frontend: React, TypeScript, Vite
 - Database: Postgres via Railway
 - Hosting: Railway
-- Outputs: CSV reports written to `csv/`
+- Outputs: CSV reports stored on local disk or in private S3-compatible storage
 
 ## Local Development
 
